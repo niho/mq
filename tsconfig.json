@@ -1,0 +1,32 @@
+{
+    "compileOnSave": true,
+    "compilerOptions": {
+        "target": "es2015",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "noEmitOnError": true,
+        "experimentalDecorators": true,
+        "allowSyntheticDefaultImports": true,
+        "emitDecoratorMetadata": true,
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "alwaysStrict": true,
+        "forceConsistentCasingInFileNames": true,
+        "strictNullChecks": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitThis": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "sourceMap": false,
+        "lib": [
+            "dom",
+            "es2015",
+            "es2015.promise"
+        ]
+    },
+    "include": [
+        "./src/*.ts"
+    ]
+}
