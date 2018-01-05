@@ -75,7 +75,7 @@ exports.connect = function () {
             const result = workerFunc(message, headers);
             if (result && result.then) {
                 result.then((value) => {
-                    sendReply(replyTo, value);
+                    sendReply(replyTo, value, headers);
                     acknowledge();
                 }, acknowledge);
             }
@@ -98,9 +98,13 @@ exports.connect = function () {
             exports.logger("MSG", this.routingKey, "(" + this.exchange + ")", "ok");
         }
     };
-    const sendReply = function (replyTo, value) {
+    const sendReply = function (replyTo, value, headers) {
         if (replyTo && value) {
-            connection.publish(replyTo, value, {}, function (err, msg) {
+            const options = {
+                contentType: "application/json",
+                headers: headers ? headers : {}
+            };
+            connection.publish(replyTo, value, options, function (err, msg) {
                 if (err) {
                     exports.logger(msg);
                 }

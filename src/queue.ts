@@ -116,7 +116,7 @@ export const connect = function() {
       const result = workerFunc(message, headers);
       if (result && result.then) {
         result.then((value) => {
-          sendReply(replyTo, value);
+          sendReply(replyTo, value, headers);
           acknowledge();
         }, acknowledge);
       } else {
@@ -138,9 +138,13 @@ export const connect = function() {
     }
   };
 
-  const sendReply = function(replyTo: string, value: any) {
+  const sendReply = function(replyTo: string, value: any, headers: Headers) {
     if (replyTo && value) {
-      connection.publish(replyTo, value, {},
+      const options: amqp.ExchangePublishOptions = {
+        contentType: "application/json",
+        headers: headers ? headers : {}
+      };
+      connection.publish(replyTo, value, options,
         function(err?: boolean, msg?: string) {
           if (err) {
             logger(msg);
