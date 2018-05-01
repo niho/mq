@@ -1,31 +1,44 @@
 import * as amqp from "amqp";
 import { Mutex } from "async-mutex";
+import * as uuidv4 from "uuid/v4";
 
 export let logger = console.log;
 
 export type Worker =
   (message: any, headers: Headers) => PromiseLike<any> | void;
 
+export interface WorkerOptions {
+  acknowledgeOnReceipt: boolean;
+}
+
 export interface Headers {
   [key: string]: any
 }
 
 interface Queues {
-  [name: string]: Worker[]
+  [name: string]: Array<{ func: Worker, options: WorkerOptions }>
+}
+
+interface Callbacks {
+  [correlationId: string]: (msg: any, err?: Error) => void;
 }
 
 interface Message {
   exchangeName: string;
   routingKey: string;
   data: {} | Buffer;
-  headers: Headers;
+  options: amqp.ExchangePublishOptions;
 }
 
+const callbacks: Callbacks = {};
 const workers: Queues = {};
 const subscribers: Queues = {};
 const fifoQueue: Message[] = [];
 
-export let connected: boolean = false;
+let replyToQueue: string | undefined;
+
+let connected: boolean = false;
+export const isConnected = () => connected;
 
 export const connect = function() {
   let interval: NodeJS.Timer;
@@ -51,6 +64,10 @@ export const connect = function() {
   });
 
   connection.on("close", function() {
+    replyToQueue = undefined;
+  });
+
+  connection.on("close", function() {
     clearInterval(interval);
   });
 
@@ -60,10 +77,14 @@ export const connect = function() {
   });
 
   connection.on("ready", function() {
+    subscribeReplyTo();
+  });
+
+  connection.on("ready", function() {
     for (const routingKey in workers) {
       if (workers.hasOwnProperty(routingKey)) {
-        workers[routingKey].forEach((func) => {
-          subscribeWorker(routingKey, func);
+        workers[routingKey].forEach((_worker) => {
+          subscribeWorker(routingKey, _worker.func, _worker.options);
         });
       }
     }
@@ -72,8 +93,8 @@ export const connect = function() {
   connection.on("ready", function() {
     for (const topic in subscribers) {
       if (subscribers.hasOwnProperty(topic)) {
-        subscribers[topic].forEach((func) => {
-          subscribeTopic(topic, func);
+        subscribers[topic].forEach((_worker) => {
+          subscribeTopic(topic, _worker.func, _worker.options);
         });
       }
     }
@@ -83,23 +104,46 @@ export const connect = function() {
     interval = setInterval(drainQueue, 100);
   });
 
-  const subscribeWorker = function(routingKey: string, func: Worker) {
-    const q = connection.queue(routingKey, { autoDelete: false, durable: true },
-      function(_info: amqp.QueueCallback) {
-        q.subscribe({ ack: true, prefetchCount: 1 },
-          function(message, headers, deliveryInfo, ack) {
-            messageHandler(func, message, headers, deliveryInfo, ack);
+  const subscribeReplyTo = function() {
+    const q = connection.queue("", { exclusive: true },
+      function(info: amqp.QueueCallback) {
+        replyToQueue = info.name;
+        q.subscribe({ exclusive: true },
+          function(message, _headers, deliveryInfo, _ack) {
+            for (const correlationId in callbacks) {
+              if (correlationId === (deliveryInfo as any).correlationId) {
+                if (callbacks.hasOwnProperty(correlationId)) {
+                  try {
+                    callbacks[correlationId].call(undefined, message);
+                  } catch (error) {
+                    logger(error);
+                  }
+                }
+              }
+            }
           });
     });
   };
 
-  const subscribeTopic = function(topic: string, func: Worker) {
+  const subscribeWorker =
+      function(routingKey: string, func: Worker, options: WorkerOptions) {
+    const q = connection.queue(routingKey, { autoDelete: false, durable: true },
+      function(_info: amqp.QueueCallback) {
+        q.subscribe({ ack: true, prefetchCount: 1 },
+          function(message, headers, deliveryInfo, ack) {
+            messageHandler(func, message, headers, deliveryInfo, ack, options);
+          });
+    });
+  };
+
+  const subscribeTopic =
+      function(topic: string, func: Worker, options: WorkerOptions) {
     const q = connection.queue(topic, { autoDelete: false, durable: true },
       function(_info: amqp.QueueCallback) {
         q.bind("amq.topic", topic);
         q.subscribe({ ack: true, prefetchCount: 1 },
           function(message, headers, deliveryInfo, ack) {
-            messageHandler(func, message, headers, deliveryInfo, ack);
+            messageHandler(func, message, headers, deliveryInfo, ack, options);
           });
     });
   };
@@ -109,14 +153,21 @@ export const connect = function() {
       message: any,
       headers: Headers,
       deliveryInfo: amqp.DeliveryInfo,
-      ack: amqp.Ack) {
-    const acknowledge = acknowledgeHandler.bind(ack);
+      ack: amqp.Ack,
+      options: WorkerOptions) {
+    if (options.acknowledgeOnReceipt) {
+      acknowledgeHandler.call(ack);
+    }
+    const acknowledge = options.acknowledgeOnReceipt ?
+      ((error?: Error) => { logger(error); }) :
+      acknowledgeHandler.bind(ack);
     const replyTo = (deliveryInfo as any).replyTo;
+    const correlationId = (deliveryInfo as any).correlationId;
     try {
       const result = workerFunc(message, headers);
       if (result && result.then) {
         result.then((value) => {
-          sendReply(replyTo, value, headers);
+          sendReply(replyTo, correlationId, value, headers);
           acknowledge();
         }, acknowledge);
       } else {
@@ -138,11 +189,16 @@ export const connect = function() {
     }
   };
 
-  const sendReply = function(replyTo: string, value: any, headers: Headers) {
+  const sendReply = function(
+      replyTo: string,
+      correlationId: string,
+      value: any,
+      headers: Headers) {
     if (replyTo && value) {
       const options: amqp.ExchangePublishOptions = {
         contentType: "application/json",
-        headers: headers ? headers : {}
+        headers: headers ? headers : {},
+        correlationId
       };
       connection.publish(replyTo, value, options,
         function(err?: boolean, msg?: string) {
@@ -172,15 +228,10 @@ export const connect = function() {
   };
 
   const internalPublish = function(msg: Message) {
-    const options: amqp.ExchangePublishOptions = {
-      deliveryMode: 2, // Persistent
-      contentType: "application/json",
-      headers: msg.headers ? msg.headers : {}
-    };
     return new Promise((resolve, reject) => {
       const exchange = connection
         .exchange(msg.exchangeName, { confirm: true }, function() {
-          exchange.publish(msg.routingKey, msg.data, options,
+          exchange.publish(msg.routingKey, msg.data, msg.options,
             function(failed, errorMessage) {
               if (failed) {
                 reject(new Error(errorMessage));
@@ -199,17 +250,71 @@ export const enqueue = function(
     routingKey: string,
     data: {} | Buffer,
     headers?: Headers): void {
+  const options: amqp.ExchangePublishOptions = {
+    deliveryMode: 2, // Persistent
+    mandatory: true,
+    contentType: "application/json",
+    headers: headers ? headers : {}
+  };
   fifoQueue.push({
     exchangeName: "",
     routingKey,
     data,
-    headers: headers ? headers : {}
+    options
   });
 };
 
-export const worker = function(routingKey: string, func: Worker) {
+export const worker =
+    function(routingKey: string, func: Worker, options?: WorkerOptions) {
   workers[routingKey] = workers[routingKey] || [];
-  workers[routingKey].push(func);
+  workers[routingKey].push({
+    func,
+    options: options ? options : { acknowledgeOnReceipt: false }
+  });
+};
+
+// == RPC CALL ==
+
+export const rpc = function(
+    routingKey: string,
+    data: {} | Buffer,
+    headers?: Headers,
+    ttl?: number): PromiseLike<any> {
+  if (replyToQueue) {
+    const _ttl = ttl || 60 * 1000;
+    const correlationId = uuidv4();
+    const options: amqp.ExchangePublishOptions = {
+      contentType: "application/json",
+      replyTo: replyToQueue,
+      correlationId,
+      expiration: _ttl.toString(),
+      headers: headers ? headers : {}
+    };
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        clearTimeout(timeout);
+        delete callbacks[correlationId];
+        reject(new Error("Timeout"));
+      }, _ttl);
+      callbacks[correlationId] = (msg, err) => {
+        clearTimeout(timeout);
+        delete callbacks[correlationId];
+        if (err) {
+          reject(err);
+        } else {
+          resolve(msg);
+        }
+      };
+      fifoQueue.push({
+        exchangeName: "",
+        routingKey,
+        data,
+        options
+      });
+    });
+  } else {
+    return Promise.reject(new Error("Not connected to broker"));
+  }
 };
 
 // == TOPIC PUB/SUB ==
@@ -218,15 +323,24 @@ export const publish = function(
     routingKey: string,
     data: {} | Buffer,
     headers?: Headers): void {
+  const options: amqp.ExchangePublishOptions = {
+    deliveryMode: 2, // Persistent
+    contentType: "application/json",
+    headers: headers ? headers : {}
+  };
   fifoQueue.push({
     exchangeName: "amq.topic",
     routingKey,
     data,
-    headers: headers ? headers : {}
+    options
   });
 };
 
-export const subscribe = function(topic: string, func: Worker) {
+export const subscribe =
+    function(topic: string, func: Worker, options?: WorkerOptions) {
   subscribers[topic] = subscribers[topic] || [];
-  subscribers[topic].push(func);
+  subscribers[topic].push({
+    func,
+    options: options ? options : { acknowledgeOnReceipt: false }
+  });
 };

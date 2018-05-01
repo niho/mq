@@ -1,6 +1,7 @@
 {
     "compileOnSave": true,
     "compilerOptions": {
+        "outDir": "dist",
         "target": "es2015",
         "module": "commonjs",
         "moduleResolution": "node",
@@ -21,9 +22,8 @@
         "noFallthroughCasesInSwitch": true,
         "sourceMap": false,
         "lib": [
-            "dom",
-            "es2015",
-            "es2015.promise"
+          "es2015",
+          "es2015.promise"
         ]
     },
     "include": [
