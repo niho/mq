@@ -2,6 +2,8 @@ import * as amqp from "amqp";
 import { Mutex } from "async-mutex";
 import * as uuidv4 from "uuid/v4";
 
+const defaultTimeout = 30 * 1000; // 30 seconds
+
 type Logger =
   (message?: any, ...optionalParams: any[]) => void;
 
@@ -295,11 +297,12 @@ export const worker =
 
 export const rpc = function(
     routingKey: string,
-    data: {} | Buffer,
+    data?: {} | Buffer,
     headers?: Headers,
-    ttl?: number): PromiseLike<any> {
+    ttl?: number): Promise<any> {
   if (replyToQueue) {
-    const _ttl = ttl || 60 * 1000;
+    const _data = data || {};
+    const _ttl = ttl || defaultTimeout;
     const correlationId = uuidv4();
     const options: amqp.ExchangePublishOptions = {
       contentType: "application/json",
@@ -326,7 +329,7 @@ export const rpc = function(
       fifoQueue.push({
         exchangeName: "",
         routingKey,
-        data,
+        data: _data,
         options
       });
     });

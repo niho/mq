@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const amqp = require("amqp");
 const async_mutex_1 = require("async-mutex");
 const uuidv4 = require("uuid/v4");
+const defaultTimeout = 30 * 1000;
 let logger = console.log;
 exports.setLogger = (newLogger) => {
     logger = newLogger;
@@ -214,7 +215,8 @@ exports.worker = function (routingKey, func, options) {
 };
 exports.rpc = function (routingKey, data, headers, ttl) {
     if (replyToQueue) {
-        const _ttl = ttl || 60 * 1000;
+        const _data = data || {};
+        const _ttl = ttl || defaultTimeout;
         const correlationId = uuidv4();
         const options = {
             contentType: "application/json",
@@ -242,7 +244,7 @@ exports.rpc = function (routingKey, data, headers, ttl) {
             fifoQueue.push({
                 exchangeName: "",
                 routingKey,
-                data,
+                data: _data,
                 options
             });
         });
