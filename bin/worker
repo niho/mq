@@ -7,12 +7,10 @@ program
   .version("1.2.0")
   .arguments("<routingKey>")
   .description("auto reply-worker.")
-  .option("-d, --data <json>", "payload data (json string)")
-  .option("-t, --ttl <milliseconds>", "timeout in milliseconds")
+  .option("-d, --data <json>", "response data (json string)")
   .option("-s, --silent", "silent mode (don't output anything)")
   .action(function(routingKey) {
     const payload = program.data ? JSON.parse(program.data) : {};
-    const ttl = program.ttl ? parseInt(program.ttl) : undefined;
     if (routingKey) {
       mq.worker(routingKey, (a,b,c) => {
         console.log(a);
