@@ -33,7 +33,8 @@
     "@types/node": "^9.6.5",
     "amqp": "^0.2.6",
     "async-mutex": "^0.1.3",
-    "uuid": "^3.2.1"
+    "uuid": "^3.2.1",
+    "zeromq-ng": "^5.0.0-beta.9"
   },
   "devDependencies": {
     "@types/amqp": "^0.2.3",
