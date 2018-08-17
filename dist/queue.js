@@ -107,7 +107,9 @@ exports.connect = function () {
             acknowledgeHandler.call(ack);
         }
         const acknowledge = options.acknowledgeOnReceipt ?
-            ((error) => { logger(error); }) :
+            ((error) => { if (error) {
+                logger(error);
+            } }) :
             acknowledgeHandler.bind(ack);
         const replyTo = deliveryInfo.replyTo;
         const correlationId = deliveryInfo.correlationId;

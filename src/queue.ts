@@ -169,7 +169,7 @@ export const connect = function() {
       acknowledgeHandler.call(ack);
     }
     const acknowledge = options.acknowledgeOnReceipt ?
-      ((error?: Error) => { logger(error); }) :
+      ((error?: Error) => { if (error) { logger(error); } }) :
       acknowledgeHandler.bind(ack);
     const replyTo = (deliveryInfo as any).replyTo;
     const correlationId = (deliveryInfo as any).correlationId;
