@@ -80,7 +80,6 @@ export const connect = function() {
 
   connection.on("ready", function() {
     logger("Connection to AMQP broker is ready.");
-    connected = true;
   });
 
   connection.on("ready", function() {
@@ -116,6 +115,7 @@ export const connect = function() {
     const q = connection.queue("", { exclusive: true },
       function(info: amqp.QueueCallback) {
         replyToQueue = info.name;
+        connected = true;
         q.subscribe({ exclusive: true },
           function(message, _headers, deliveryInfo, _ack) {
             for (const correlationId in callbacks) {

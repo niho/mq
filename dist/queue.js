@@ -39,7 +39,6 @@ exports.connect = function () {
         clearInterval(interval);
     });
     connection.on("ready", function () {
-        connected = true;
         logger("Connection to AMQP broker is ready.");
     });
     connection.on("ready", function () {
@@ -70,6 +69,7 @@ exports.connect = function () {
     const subscribeReplyTo = function () {
         const q = connection.queue("", { exclusive: true }, function (info) {
             replyToQueue = info.name;
+            connected = true;
             q.subscribe({ exclusive: true }, function (message, _headers, deliveryInfo, _ack) {
                 for (const correlationId in callbacks) {
                     if (correlationId === deliveryInfo.correlationId) {
