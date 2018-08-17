@@ -13,6 +13,18 @@ export const setLogger = (newLogger: Logger) => {
   logger = newLogger;
 };
 
+const red = (str: string): string =>
+  process.env.NODE_ENV !== "production" ? `\x1b[31m${str}\x1b[0m` : str;
+
+const green = (str: string): string =>
+  process.env.NODE_ENV !== "production" ? `\x1b[32m${str}\x1b[0m` : str;
+
+const startTime = (): [number, number] =>
+  process.hrtime();
+
+const elapsed = (start: [number, number]): string =>
+  `${(process.hrtime(start)[1] / 1000000).toFixed(3)} ms`;
+
 export type Worker =
   (message: any, headers: Headers) => PromiseLike<any> | void;
 
@@ -141,7 +153,12 @@ export const connect = function() {
       function(_info: amqp.QueueCallback) {
         q.subscribe({ ack: true, prefetchCount: 1 },
           function(message, headers, deliveryInfo, ack) {
-            messageHandler(func, message, headers, deliveryInfo, ack, options);
+            const start = startTime();
+            messageHandler(func, message, headers, deliveryInfo, ack, options)
+              .then(() =>
+                logger("MSG", ack.routingKey, green("OK"), elapsed(start)))
+              .catch((err) =>
+                logger("MSG", ack.routingKey, red("ERR"), elapsed(start), err));
           });
     });
   };
@@ -153,7 +170,12 @@ export const connect = function() {
         q.bind("amq.topic", topic);
         q.subscribe({ ack: true, prefetchCount: 1 },
           function(message, headers, deliveryInfo, ack) {
-            messageHandler(func, message, headers, deliveryInfo, ack, options);
+            const start = startTime();
+            messageHandler(func, message, headers, deliveryInfo, ack, options)
+              .then(() =>
+                logger("SUB", ack.routingKey, green("OK"), elapsed(start)))
+              .catch((err) =>
+                logger("SUB", ack.routingKey, red("ERR"), elapsed(start), err));
           });
     });
   };
@@ -164,38 +186,41 @@ export const connect = function() {
       headers: Headers,
       deliveryInfo: amqp.DeliveryInfo,
       ack: amqp.Ack,
-      options: WorkerOptions) {
+      options: WorkerOptions): Promise<void> {
     if (options.acknowledgeOnReceipt) {
       acknowledgeHandler.call(ack);
     }
     const acknowledge = options.acknowledgeOnReceipt ?
-      ((error?: Error) => { if (error) { logger(error); } }) :
-      acknowledgeHandler.bind(ack);
+      (() => { /* nop */ }) : acknowledgeHandler.bind(ack);
     const replyTo = (deliveryInfo as any).replyTo;
     const correlationId = (deliveryInfo as any).correlationId;
     try {
       const result = workerFunc(message, headers);
       if (result && result.then) {
-        result.then((value) => {
-          sendReply(replyTo, correlationId, value, headers);
-          acknowledge();
-        }, acknowledge);
+        return Promise.resolve(result)
+          .then((value) => {
+            sendReply(replyTo, correlationId, value, headers);
+            acknowledge();
+          })
+          .catch((err) => {
+            acknowledge(err);
+            return Promise.reject(err);
+          });
       } else {
         acknowledge();
+        return Promise.resolve();
       }
     } catch (error) {
       acknowledge(error);
+      return Promise.reject(error);
     }
   };
 
   const acknowledgeHandler = function(this: amqp.Ack, error?: Error) {
     if (error) {
       this.reject(false);
-      logger("MSG", this.routingKey, "(" + this.exchange + ")", "err");
-      logger(error);
     } else {
       this.acknowledge(false);
-      logger("MSG", this.routingKey, "(" + this.exchange + ")", "ok");
     }
   };
 

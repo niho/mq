@@ -8,6 +8,10 @@ let logger = console.log;
 exports.setLogger = (newLogger) => {
     logger = newLogger;
 };
+const red = (str) => process.env.NODE_ENV !== "production" ? `\x1b[31m${str}\x1b[0m` : str;
+const green = (str) => process.env.NODE_ENV !== "production" ? `\x1b[32m${str}\x1b[0m` : str;
+const startTime = () => process.hrtime();
+const elapsed = (start) => `${(process.hrtime(start)[1] / 1000000).toFixed(3)} ms`;
 const callbacks = {};
 const workers = {};
 const subscribers = {};
@@ -90,7 +94,10 @@ exports.connect = function () {
     const subscribeWorker = function (routingKey, func, options) {
         const q = connection.queue(routingKey, { autoDelete: false, durable: true }, function (_info) {
             q.subscribe({ ack: true, prefetchCount: 1 }, function (message, headers, deliveryInfo, ack) {
-                messageHandler(func, message, headers, deliveryInfo, ack, options);
+                const start = startTime();
+                messageHandler(func, message, headers, deliveryInfo, ack, options)
+                    .then(() => logger("MSG", ack.routingKey, green("OK"), elapsed(start)))
+                    .catch((err) => logger("MSG", ack.routingKey, red("ERR"), elapsed(start), err));
             });
         });
     };
@@ -98,7 +105,10 @@ exports.connect = function () {
         const q = connection.queue(topic, { autoDelete: false, durable: true }, function (_info) {
             q.bind("amq.topic", topic);
             q.subscribe({ ack: true, prefetchCount: 1 }, function (message, headers, deliveryInfo, ack) {
-                messageHandler(func, message, headers, deliveryInfo, ack, options);
+                const start = startTime();
+                messageHandler(func, message, headers, deliveryInfo, ack, options)
+                    .then(() => logger("SUB", ack.routingKey, green("OK"), elapsed(start)))
+                    .catch((err) => logger("SUB", ack.routingKey, red("ERR"), elapsed(start), err));
             });
         });
     };
@@ -107,37 +117,38 @@ exports.connect = function () {
             acknowledgeHandler.call(ack);
         }
         const acknowledge = options.acknowledgeOnReceipt ?
-            ((error) => { if (error) {
-                logger(error);
-            } }) :
-            acknowledgeHandler.bind(ack);
+            (() => { }) : acknowledgeHandler.bind(ack);
         const replyTo = deliveryInfo.replyTo;
         const correlationId = deliveryInfo.correlationId;
         try {
             const result = workerFunc(message, headers);
             if (result && result.then) {
-                result.then((value) => {
+                return Promise.resolve(result)
+                    .then((value) => {
                     sendReply(replyTo, correlationId, value, headers);
                     acknowledge();
-                }, acknowledge);
+                })
+                    .catch((err) => {
+                    acknowledge(err);
+                    return Promise.reject(err);
+                });
             }
             else {
                 acknowledge();
+                return Promise.resolve();
             }
         }
         catch (error) {
             acknowledge(error);
+            return Promise.reject(error);
         }
     };
     const acknowledgeHandler = function (error) {
         if (error) {
             this.reject(false);
-            logger("MSG", this.routingKey, "(" + this.exchange + ")", "err");
-            logger(error);
         }
         else {
             this.acknowledge(false);
-            logger("MSG", this.routingKey, "(" + this.exchange + ")", "ok");
         }
     };
     const sendReply = function (replyTo, correlationId, value, headers) {
