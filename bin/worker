@@ -7,6 +7,7 @@ program
   .version("1.2.0")
   .arguments("<routingKey>")
   .description("auto reply-worker.")
+  .option("-a, --ack", "acknowledge on receipt mode")
   .option("-d, --data <json>", "response data (json string)")
   .option("-s, --silent", "silent mode (don't output anything)")
   .action(function(routingKey) {
@@ -15,6 +16,8 @@ program
       mq.worker(routingKey, (a,b,c) => {
         console.log(a);
         return Promise.resolve(payload);
+      }, {
+        acknowledgeOnReceipt: program.ack ? true : false
       });
       mq.connect();
     } else {
