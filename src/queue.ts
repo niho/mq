@@ -2,7 +2,14 @@ import * as amqp from "amqp";
 import { Mutex } from "async-mutex";
 import * as uuidv4 from "uuid/v4";
 
-export let logger = console.log;
+type Logger =
+  (message?: any, ...optionalParams: any[]) => void;
+
+let logger: Logger = console.log;
+
+export const setLogger = (newLogger: Logger) => {
+  logger = newLogger;
+};
 
 export type Worker =
   (message: any, headers: Headers) => PromiseLike<any> | void;
@@ -77,6 +84,7 @@ export const connect = function() {
   });
 
   connection.on("ready", function() {
+    logger("Subscribing to reply queue.");
     subscribeReplyTo();
   });
 

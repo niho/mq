@@ -3,7 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const amqp = require("amqp");
 const async_mutex_1 = require("async-mutex");
 const uuidv4 = require("uuid/v4");
-exports.logger = console.log;
+let logger = console.log;
+exports.setLogger = (newLogger) => {
+    logger = newLogger;
+};
 const callbacks = {};
 const workers = {};
 const subscribers = {};
@@ -19,14 +22,14 @@ exports.connect = function () {
     });
     connection.on("error", function (err) {
         if (err.stack) {
-            exports.logger(err.stack);
+            logger(err.stack);
         }
         else {
-            exports.logger(err);
+            logger(err);
         }
     });
     connection.on("close", function (hadError) {
-        exports.logger("Connection to AMQP broker was closed.", hadError ? "Reconnecting..." : "");
+        logger("Connection to AMQP broker was closed.", hadError ? "Reconnecting..." : "");
         connected = false;
     });
     connection.on("close", function () {
@@ -36,10 +39,11 @@ exports.connect = function () {
         clearInterval(interval);
     });
     connection.on("ready", function () {
-        exports.logger("Connection to AMQP broker is ready.");
         connected = true;
+        logger("Connection to AMQP broker is ready.");
     });
     connection.on("ready", function () {
+        logger("Subscribing to reply queue.");
         subscribeReplyTo();
     });
     connection.on("ready", function () {
@@ -74,7 +78,7 @@ exports.connect = function () {
                                 callbacks[correlationId].call(undefined, message);
                             }
                             catch (error) {
-                                exports.logger(error);
+                                logger(error);
                             }
                         }
                     }
@@ -102,7 +106,7 @@ exports.connect = function () {
             acknowledgeHandler.call(ack);
         }
         const acknowledge = options.acknowledgeOnReceipt ?
-            ((error) => { exports.logger(error); }) :
+            ((error) => { logger(error); }) :
             acknowledgeHandler.bind(ack);
         const replyTo = deliveryInfo.replyTo;
         const correlationId = deliveryInfo.correlationId;
@@ -125,12 +129,12 @@ exports.connect = function () {
     const acknowledgeHandler = function (error) {
         if (error) {
             this.reject(false);
-            exports.logger("MSG", this.routingKey, "(" + this.exchange + ")", "err");
-            exports.logger(error);
+            logger("MSG", this.routingKey, "(" + this.exchange + ")", "err");
+            logger(error);
         }
         else {
             this.acknowledge(false);
-            exports.logger("MSG", this.routingKey, "(" + this.exchange + ")", "ok");
+            logger("MSG", this.routingKey, "(" + this.exchange + ")", "ok");
         }
     };
     const sendReply = function (replyTo, correlationId, value, headers) {
@@ -142,7 +146,7 @@ exports.connect = function () {
             };
             connection.publish(replyTo, value, options, function (err, msg) {
                 if (err) {
-                    exports.logger(msg);
+                    logger(msg);
                 }
             });
         }
@@ -158,7 +162,7 @@ exports.connect = function () {
                 const msg = fifoQueue.shift();
                 if (msg) {
                     internalPublish(msg)
-                        .catch(exports.logger);
+                        .catch(logger);
                 }
             }
             release();
