@@ -314,7 +314,7 @@ export const worker =
   workers[routingKey] = workers[routingKey] || [];
   workers[routingKey].push({
     func,
-    options: options ? options : { acknowledgeOnReceipt: false }
+    options: options ? options : { acknowledgeOnReceipt: true }
   });
 };
 
@@ -387,6 +387,6 @@ export const subscribe =
   subscribers[topic] = subscribers[topic] || [];
   subscribers[topic].push({
     func,
-    options: options ? options : { acknowledgeOnReceipt: false }
+    options: options ? options : { acknowledgeOnReceipt: true }
   });
 };

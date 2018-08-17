@@ -223,7 +223,7 @@ exports.worker = function (routingKey, func, options) {
     workers[routingKey] = workers[routingKey] || [];
     workers[routingKey].push({
         func,
-        options: options ? options : { acknowledgeOnReceipt: false }
+        options: options ? options : { acknowledgeOnReceipt: true }
     });
 };
 exports.rpc = function (routingKey, data, headers, ttl) {
@@ -283,6 +283,6 @@ exports.subscribe = function (topic, func, options) {
     subscribers[topic] = subscribers[topic] || [];
     subscribers[topic].push({
         func,
-        options: options ? options : { acknowledgeOnReceipt: false }
+        options: options ? options : { acknowledgeOnReceipt: true }
     });
 };
