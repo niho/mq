@@ -15,7 +15,7 @@ exports.connect = function () {
     let interval;
     const mutex = new async_mutex_1.Mutex();
     const connection = amqp.createConnection({
-        url: process.env.INSURELLO_AMQP_URL
+        url: process.env.AMQP_URL
     });
     connection.on("error", function (err) {
         if (err.stack) {

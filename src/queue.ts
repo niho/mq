@@ -46,7 +46,7 @@ export const connect = function() {
 
   const connection: amqp.AMQPClient =
     amqp.createConnection({
-      url: process.env.INSURELLO_AMQP_URL
+      url: process.env.AMQP_URL
     });
 
   connection.on("error", function(err) {
