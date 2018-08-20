@@ -7,17 +7,20 @@ program
   .version("1.2.0")
   .arguments("<routingKey>")
   .description("auto reply-worker.")
-  .option("-a, --ack", "acknowledge on receipt mode")
   .option("-d, --data <json>", "response data (json string)")
   .option("-s, --silent", "silent mode (don't output anything)")
+  .option("-w, --wait <seconds>", "seconds to wait before sending response")
   .action(function(routingKey) {
     const payload = program.data ? JSON.parse(program.data) : undefined;
+    const wait = program.wait ? parseInt(program.wait) : 0;
     if (routingKey) {
       mq.worker(routingKey, (message, headers) => {
         console.log(message, headers);
-        return Promise.resolve(payload ? payload : message);
-      }, {
-        acknowledgeOnReceipt: program.ack ? true : false
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            resolve(payload ? payload : message);
+          }, wait * 1000);
+        });
       });
       mq.startServer();
     } else {

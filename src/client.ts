@@ -21,10 +21,16 @@ interface Message {
 
 const fifoQueue: Message[] = [];
 
-const req = new zmq.Request();
+const req = new zmq.Request({
+  connectTimeout: defaultTimeout,
+  receiveTimeout: defaultTimeout,
+  sendTimeout: defaultTimeout,
+  correlate: true
+});
 
 export const startClient = async function() {
   req.connect("tcp://127.0.0.1:3000");
+  $debug("REQ-CONNECT", "tcp://127.0.0.1:3000");
 
   const internalSend = (msg: Message) =>
     req.send([
@@ -41,13 +47,17 @@ export const startClient = async function() {
     return callback.call(undefined, data);
   };
 
-  const drainQueue = async () => {
+  const drainQueue = async (): Promise<void> => {
     while (fifoQueue.length > 0) {
       const msg = fifoQueue.shift();
       if (msg) {
         $debug("REQ-SEND", msg);
-        await internalSend(msg);
-        await receiveReply(msg.callback);
+        try {
+          await internalSend(msg);
+          await receiveReply(msg.callback);
+        } catch (err) {
+          msg.callback(undefined, err);
+        }
       }
     }
   };
@@ -60,20 +70,13 @@ export const startClient = async function() {
 
 // == RPC CALL ==
 
-export const rpc = function(
+export const rpc = (
     routingKey: string,
-    data?: {} | Buffer,
-    headers?: Headers,
-    ttl?: number): Promise<any> {
-  const _data = data || {};
-  const _ttl = ttl || defaultTimeout;
+    data?: any,
+    headers?: Headers
+): Promise<any> => {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      clearTimeout(timeout);
-      reject(new Error("Timeout"));
-    }, _ttl);
     const callback: Callback = (msg, err) => {
-      clearTimeout(timeout);
       if (err) {
         reject(err);
       } else {
@@ -82,7 +85,7 @@ export const rpc = function(
     };
     fifoQueue.push({
       routingKey,
-      data: _data,
+      data: data ? data : {},
       headers: headers ? headers : {},
       callback
     });

@@ -24,6 +24,7 @@ const res = new zmq.Response();
 exports.startServer = function () {
     return __awaiter(this, void 0, void 0, function* () {
         yield res.bind("tcp://127.0.0.1:3000");
+        $debug("RES-BIND", "tcp://127.0.0.1:3000");
         logger("Server bound to port 3000.");
         const messageHandler = (workerFunc, message, headers) => {
             try {
@@ -70,7 +71,7 @@ exports.startServer = function () {
         }
     });
 };
-exports.worker = function (routingKey, func) {
+exports.worker = (routingKey, func) => {
     workers[routingKey] = workers[routingKey] || [];
     workers[routingKey] = func;
 };

@@ -41,6 +41,7 @@ const res = new zmq.Response();
 
 export const startServer = async function() {
   await res.bind("tcp://127.0.0.1:3000");
+  $debug("RES-BIND", "tcp://127.0.0.1:3000");
   logger("Server bound to port 3000.");
 
   const messageHandler = (
@@ -103,8 +104,7 @@ export const startServer = async function() {
 
 // == RPC WORKERS ==
 
-export const worker =
-    function(routingKey: string, func: Worker) {
+export const worker = (routingKey: string, func: Worker) => {
   workers[routingKey] = workers[routingKey] || [];
   workers[routingKey] = func;
 };

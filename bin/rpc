@@ -14,13 +14,14 @@ program
   .action(function(routingKey) {
     const payload = program.data ? JSON.parse(program.data) : {};
     const ttl = program.ttl ? parseInt(program.ttl) : undefined;
+    const silent = program.silent ? true : false;
     const repeat = program.repeat ? parseInt(program.repeat) : 1;
     if (routingKey) {
       mq.startClient();
       Promise.all(Array.from(Array(repeat).keys()).map((n) => {
-        return mq.rpc(routingKey, payload, {}, ttl)
-          .then((msg) => { console.log(msg); })
-          .catch((err) => { console.error(err); });
+        return mq.rpc(routingKey, payload, {})
+          .then((msg) => { if (!silent) console.log(msg); })
+          .catch((err) => { if (!silent) console.error(err); });
       }))
       .then(() => process.exit(0))
       .catch(() => process.exit(1));
@@ -33,8 +34,4 @@ program.parse(process.argv);
 
 if (!process.argv.slice(2).length) {
   program.outputHelp();
-}
-
-if (program.silent) {
-  mq.setLogger(() => {});
 }

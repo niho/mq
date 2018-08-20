@@ -13,10 +13,16 @@ const zmq = require("zeromq-ng");
 const $debug = debug("mq:client");
 const defaultTimeout = 30 * 1000;
 const fifoQueue = [];
-const req = new zmq.Request();
+const req = new zmq.Request({
+    connectTimeout: defaultTimeout,
+    receiveTimeout: defaultTimeout,
+    sendTimeout: defaultTimeout,
+    correlate: true
+});
 exports.startClient = function () {
     return __awaiter(this, void 0, void 0, function* () {
         req.connect("tcp://127.0.0.1:3000");
+        $debug("REQ-CONNECT", "tcp://127.0.0.1:3000");
         const internalSend = (msg) => req.send([
             msg.routingKey,
             JSON.stringify(msg.headers),
@@ -34,8 +40,13 @@ exports.startClient = function () {
                 const msg = fifoQueue.shift();
                 if (msg) {
                     $debug("REQ-SEND", msg);
-                    yield internalSend(msg);
-                    yield receiveReply(msg.callback);
+                    try {
+                        yield internalSend(msg);
+                        yield receiveReply(msg.callback);
+                    }
+                    catch (err) {
+                        msg.callback(undefined, err);
+                    }
                 }
             }
         });
@@ -44,16 +55,9 @@ exports.startClient = function () {
         }
     });
 };
-exports.rpc = function (routingKey, data, headers, ttl) {
-    const _data = data || {};
-    const _ttl = ttl || defaultTimeout;
+exports.rpc = (routingKey, data, headers) => {
     return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            clearTimeout(timeout);
-            reject(new Error("Timeout"));
-        }, _ttl);
         const callback = (msg, err) => {
-            clearTimeout(timeout);
             if (err) {
                 reject(err);
             }
@@ -63,7 +67,7 @@ exports.rpc = function (routingKey, data, headers, ttl) {
         };
         fifoQueue.push({
             routingKey,
-            data: _data,
+            data: data ? data : {},
             headers: headers ? headers : {},
             callback
         });
