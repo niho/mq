@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --napi-modules
 
 const mq = require("../dist/queue.js");
 const program = require("commander");
@@ -19,7 +19,7 @@ program
       }, {
         acknowledgeOnReceipt: program.ack ? true : false
       });
-      mq.connect();
+      mq.startWorker();
     } else {
       program.outputHelp();
     }

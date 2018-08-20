@@ -23,7 +23,8 @@
         "sourceMap": false,
         "lib": [
           "es2015",
-          "es2015.promise"
+          "es2015.promise",
+          "esnext.asynciterable"
         ]
     },
     "include": [

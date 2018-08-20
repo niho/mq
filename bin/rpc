@@ -14,15 +14,10 @@ program
     const payload = program.data ? JSON.parse(program.data) : {};
     const ttl = program.ttl ? parseInt(program.ttl) : undefined;
     if (routingKey) {
-      mq.connect();
-      const interval = setInterval(() => {
-        if (mq.isConnected()) {
-          clearInterval(interval);
-          mq.rpc(routingKey, payload, {}, ttl)
-            .then((msg) => { console.log(msg); process.exit(0); })
-            .catch((err) => { console.error(err); process.exit(1); })
-        }
-      }, 100);
+      mq.startProducer();
+      mq.rpc(routingKey, payload, {}, ttl)
+        .then((msg) => { console.log(msg); process.exit(0); })
+        .catch((err) => { console.error(err); process.exit(1); })
     } else {
       program.outputHelp();
     }

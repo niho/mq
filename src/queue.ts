@@ -1,6 +1,9 @@
 import * as amqp from "amqp";
-import { Mutex } from "async-mutex";
+import * as debug from "debug";
 import * as uuidv4 from "uuid/v4";
+import * as zmq from "zeromq-ng";
+
+const $debug = debug("mq");
 
 const defaultTimeout = 30 * 1000; // 30 seconds
 
@@ -56,237 +59,127 @@ const workers: Queues = {};
 const subscribers: Queues = {};
 const fifoQueue: Message[] = [];
 
-let replyToQueue: string | undefined;
-
 let connected: boolean = false;
 export const isConnected = () => connected;
 
-export const connect = function() {
-  let interval: NodeJS.Timer;
-  const mutex: Mutex = new Mutex();
+const push = new zmq.Push();
+const pull = new zmq.Pull();
+const reply = new zmq.Pull();
 
-  const connection: amqp.AMQPClient =
-    amqp.createConnection({
-      url: process.env.AMQP_URL
-    });
+export const startProducer = async function() {
+  await push.bind("tcp://127.0.0.1:3000");
+  connected = true;
+  logger("Producer bound to port 3000.");
 
-  connection.on("error", function(err) {
-    if (err.stack) {
-      logger(err.stack);
-    } else {
-      logger(err);
-    }
-  });
+  reply.connect("tcp://127.0.0.1:3001");
+  logger("Reply queue connected to port 3001.");
 
-  connection.on("close", function(hadError: boolean) {
-    logger("Connection to AMQP broker was closed.",
-      hadError ? "Reconnecting..." : "");
-    connected = false;
-  });
+  const internalPublish = (msg: Message) =>
+    push.send(JSON.stringify(
+      [msg.routingKey, {
+        ...msg.options.headers,
+        replyTo: msg.options.replyTo,
+        correlationId: msg.options.correlationId
+      }, msg.data]));
 
-  connection.on("close", function() {
-    replyToQueue = undefined;
-  });
-
-  connection.on("close", function() {
-    clearInterval(interval);
-  });
-
-  connection.on("ready", function() {
-    logger("Connection to AMQP broker is ready.");
-  });
-
-  connection.on("ready", function() {
-    logger("Subscribing to reply queue.");
-    subscribeReplyTo();
-  });
-
-  connection.on("ready", function() {
-    for (const routingKey in workers) {
-      if (workers.hasOwnProperty(routingKey)) {
-        workers[routingKey].forEach((_worker) => {
-          subscribeWorker(routingKey, _worker.func, _worker.options);
-        });
+  const drainQueue = async () => {
+    while (fifoQueue.length > 0) {
+      const msg = fifoQueue.shift();
+      if (msg) {
+        await internalPublish(msg);
+        $debug("SEND", msg);
       }
     }
-  });
+  };
 
-  connection.on("ready", function() {
-    for (const topic in subscribers) {
-      if (subscribers.hasOwnProperty(topic)) {
-        subscribers[topic].forEach((_worker) => {
-          subscribeTopic(topic, _worker.func, _worker.options);
-        });
-      }
-    }
-  });
-
-  connection.on("ready", function() {
-    interval = setInterval(drainQueue, 100);
-  });
-
-  const subscribeReplyTo = function() {
-    const q = connection.queue("", { exclusive: true },
-      function(info: amqp.QueueCallback) {
-        replyToQueue = info.name;
-        connected = true;
-        q.subscribe({ exclusive: true },
-          function(message, _headers, deliveryInfo, _ack) {
-            for (const correlationId in callbacks) {
-              if (correlationId === (deliveryInfo as any).correlationId) {
-                if (callbacks.hasOwnProperty(correlationId)) {
-                  try {
-                    callbacks[correlationId].call(undefined, message);
-                  } catch (error) {
-                    logger(error);
-                  }
-                }
-              }
+  const receiveReplies = async () => {
+    $debug("RECV-REPLIES");
+    const messages = await reply.receive();
+    await messages.map((msg: Buffer) => {
+      const data = JSON.parse(msg.toString());
+      $debug("RECV-REPLY", data);
+      for (const correlationId in callbacks) {
+        if (correlationId === data[0]) {
+          if (callbacks.hasOwnProperty(correlationId)) {
+            try {
+              callbacks[correlationId].call(undefined, data[1]);
+            } catch (error) {
+              logger(error);
             }
-          });
+          }
+        }
+      }
     });
   };
 
-  const subscribeWorker =
-      function(routingKey: string, func: Worker, options: WorkerOptions) {
-    const q = connection.queue(routingKey, { autoDelete: false, durable: true },
-      function(_info: amqp.QueueCallback) {
-        q.subscribe({ ack: true, prefetchCount: 1 },
-          function(message, headers, deliveryInfo, ack) {
-            const start = startTime();
-            messageHandler(func, message, headers, deliveryInfo, ack, options)
-              .then(() =>
-                logger("MSG", ack.routingKey, green("OK"), elapsed(start)))
-              .catch((err) =>
-                logger("MSG", ack.routingKey, red("ERR"), elapsed(start), err));
-          });
-    });
-  };
+  while (!push.closed && !reply.closed) {
+    await drainQueue();
+    await receiveReplies();
+  }
+};
 
-  const subscribeTopic =
-      function(topic: string, func: Worker, options: WorkerOptions) {
-    const q = connection.queue(topic, { autoDelete: false, durable: true },
-      function(_info: amqp.QueueCallback) {
-        q.bind("amq.topic", topic);
-        q.subscribe({ ack: true, prefetchCount: 1 },
-          function(message, headers, deliveryInfo, ack) {
-            const start = startTime();
-            messageHandler(func, message, headers, deliveryInfo, ack, options)
-              .then(() =>
-                logger("SUB", ack.routingKey, green("OK"), elapsed(start)))
-              .catch((err) =>
-                logger("SUB", ack.routingKey, red("ERR"), elapsed(start), err));
-          });
-    });
-  };
+export const startWorker = async function() {
+  pull.connect("tcp://127.0.0.1:3000");
+  logger("Worker connected to port 3000.");
 
   const messageHandler = function(
       workerFunc: Worker,
       message: any,
       headers: Headers,
-      deliveryInfo: amqp.DeliveryInfo,
-      ack: amqp.Ack,
-      options: WorkerOptions): Promise<void> {
-    if (options.acknowledgeOnReceipt) {
-      acknowledgeHandler.call(ack);
-    }
-    const acknowledge = options.acknowledgeOnReceipt ?
-      (() => { /* nop */ }) : acknowledgeHandler.bind(ack);
-    const replyTo = (deliveryInfo as any).replyTo;
-    const correlationId = (deliveryInfo as any).correlationId;
+      _options: WorkerOptions): Promise<void> {
     try {
       const result = workerFunc(message, headers);
       if (result && result.then) {
         return Promise.resolve(result)
           .then((value) => {
-            sendReply(replyTo, correlationId, value, headers);
-            acknowledge();
-          })
-          .catch((err) => {
-            acknowledge(err);
-            return Promise.reject(err);
+            sendReply(headers.replyTo, headers.correlationId, value);
           });
       } else {
-        acknowledge();
         return Promise.resolve();
       }
     } catch (error) {
-      acknowledge(error);
       return Promise.reject(error);
     }
   };
 
-  const acknowledgeHandler = function(this: amqp.Ack, error?: Error) {
-    if (error) {
-      this.reject(false);
-    } else {
-      this.acknowledge(false);
-    }
-  };
-
-  const sendReply = function(
+  const sendReply = (
       replyTo: string,
       correlationId: string,
-      value: any,
-      headers: Headers) {
-    if (replyTo && value) {
-      const options: amqp.ExchangePublishOptions = {
-        contentType: "application/json",
-        headers: headers ? headers : {},
-        correlationId: correlationId ? correlationId : uuidv4()
-      };
-      connection.publish(replyTo, value, options,
-        function(err?: boolean, msg?: string) {
-          if (err) {
-            logger(msg);
-          }
-        });
-    }
-  };
-
-  const drainQueue = function() {
-    if (mutex.isLocked()) {
-      return;
-    }
-    mutex
-      .acquire()
-      .then((release) => {
-        while (fifoQueue.length > 0) {
-          const msg = fifoQueue.shift();
-          if (msg) {
-            internalPublish(msg)
-              .catch(logger);
-          }
-        }
-        release();
+      payload: any) => {
+    if (replyTo && payload) {
+      $debug("REPLY-BIND");
+      const socket = new zmq.Push();
+      socket.bind(replyTo).then(() => {
+        $debug("REPLY-SEND", replyTo, correlationId, payload);
+        socket.send(JSON.stringify([correlationId, payload]));
       });
+    }
   };
 
-  const removeEmptyOptions = (obj: any) => {
-    Object.keys(obj).forEach(key =>
-      (obj[key] && typeof obj[key] === "object") &&
-        removeEmptyOptions(obj[key]) ||
-          (obj[key] === undefined) && delete obj[key]
-    );
-    return obj;
-  };
-
-  const internalPublish = function(msg: Message) {
-    return new Promise((resolve, reject) => {
-      const exchange = connection
-        .exchange(msg.exchangeName, { confirm: true }, function() {
-          const options = removeEmptyOptions(msg.options);
-          exchange.publish(msg.routingKey, msg.data, options,
-            function(failed, errorMessage) {
-              if (failed) {
-                reject(new Error(errorMessage));
-              } else {
-                resolve();
-              }
-            });
-        });
+  const internalReceive = (msg: Buffer) => {
+    const start = startTime();
+    const data = JSON.parse(msg.toString());
+    const routingKey = data[0];
+    (workers[routingKey] || []).map((_worker) => {
+      const headers = data[1];
+      const payload = data[2];
+      messageHandler(_worker.func, payload, headers, _worker.options)
+        .then(() =>
+          logger("MSG", routingKey, green("OK"), elapsed(start)))
+        .catch((err) =>
+          logger("MSG", routingKey, red("ERR"), elapsed(start), err));
     });
   };
+
+  while (!pull.closed) {
+    const messages = await pull.receive();
+    await messages.map(internalReceive);
+  }
+};
+
+export const connect = function() {
+  startProducer();
+  startWorker();
 };
 
 // == RPC WORKERS ==
@@ -325,42 +218,38 @@ export const rpc = function(
     data?: {} | Buffer,
     headers?: Headers,
     ttl?: number): Promise<any> {
-  if (replyToQueue) {
-    const _data = data || {};
-    const _ttl = ttl || defaultTimeout;
-    const correlationId = uuidv4();
-    const options: amqp.ExchangePublishOptions = {
-      contentType: "application/json",
-      replyTo: replyToQueue,
-      correlationId,
-      expiration: _ttl.toString(),
-      headers: headers ? headers : {}
+  const _data = data || {};
+  const _ttl = ttl || defaultTimeout;
+  const correlationId = uuidv4();
+  const options: amqp.ExchangePublishOptions = {
+    contentType: "application/json",
+    replyTo: "tcp://127.0.0.1:3001",
+    correlationId,
+    expiration: _ttl.toString(),
+    headers: headers ? headers : {}
+  };
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      clearTimeout(timeout);
+      delete callbacks[correlationId];
+      reject(new Error("Timeout"));
+    }, _ttl);
+    callbacks[correlationId] = (msg, err) => {
+      clearTimeout(timeout);
+      delete callbacks[correlationId];
+      if (err) {
+        reject(err);
+      } else {
+        resolve(msg);
+      }
     };
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        clearTimeout(timeout);
-        delete callbacks[correlationId];
-        reject(new Error("Timeout"));
-      }, _ttl);
-      callbacks[correlationId] = (msg, err) => {
-        clearTimeout(timeout);
-        delete callbacks[correlationId];
-        if (err) {
-          reject(err);
-        } else {
-          resolve(msg);
-        }
-      };
-      fifoQueue.push({
-        exchangeName: "",
-        routingKey,
-        data: _data,
-        options
-      });
+    fifoQueue.push({
+      exchangeName: "",
+      routingKey,
+      data: _data,
+      options
     });
-  } else {
-    return Promise.reject(new Error("Not connected to broker"));
-  }
+  });
 };
 
 // == TOPIC PUB/SUB ==
