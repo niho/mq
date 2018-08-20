@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const mq = require("../dist/queue.js");
+const mq = require("../dist/client.js");
 const program = require("commander");
 
 program
@@ -10,14 +10,20 @@ program
   .option("-d, --data <json>", "payload data (json string)")
   .option("-t, --ttl <milliseconds>", "timeout in milliseconds")
   .option("-s, --silent", "silent mode (don't output anything)")
+  .option("-r, --repeat <N>", "repreat the request N times")
   .action(function(routingKey) {
     const payload = program.data ? JSON.parse(program.data) : {};
     const ttl = program.ttl ? parseInt(program.ttl) : undefined;
+    const repeat = program.repeat ? parseInt(program.repeat) : 1;
     if (routingKey) {
-      mq.startProducer();
-      mq.rpc(routingKey, payload, {}, ttl)
-        .then((msg) => { console.log(msg); process.exit(0); })
-        .catch((err) => { console.error(err); process.exit(1); })
+      mq.startClient();
+      Promise.all(Array.from(Array(repeat).keys()).map((n) => {
+        return mq.rpc(routingKey, payload, {}, ttl)
+          .then((msg) => { console.log(msg); })
+          .catch((err) => { console.error(err); });
+      }))
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
     } else {
       program.outputHelp();
     }

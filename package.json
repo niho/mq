@@ -1,9 +1,9 @@
 {
   "name": "mq",
   "version": "1.2.0",
-  "description": "Message queue library for RPC and PUB/SUB over AMQP.",
-  "main": "./dist/queue.js",
-  "types": "./dist/queue.d.ts",
+  "description": "Message queue library for RPC and PUB/SUB over ZeroMQ.",
+  "main": "./dist/mq.js",
+  "types": "./dist/mq.d.ts",
   "bin": {
     "rpc": "./bin/rpc"
   },
@@ -31,16 +31,11 @@
   "homepage": "https://github.com/insurello/mq#readme",
   "dependencies": {
     "@types/node": "^9.6.5",
-    "amqp": "^0.2.6",
-    "async-mutex": "^0.1.3",
     "debug": "^3.1.0",
-    "uuid": "^3.2.1",
     "zeromq-ng": "^5.0.0-beta.9"
   },
   "devDependencies": {
-    "@types/amqp": "^0.2.3",
     "@types/debug": "0.0.30",
-    "@types/uuid": "^3.4.3",
     "tslint": "^5.8.0",
     "tslint-insurello": "git+https://github.com/insurello/tslint-insurello.git",
     "typescript": "^2.6.1"
