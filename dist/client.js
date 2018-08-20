@@ -23,11 +23,14 @@ exports.startClient = function () {
     return __awaiter(this, void 0, void 0, function* () {
         req.connect("tcp://127.0.0.1:3000");
         $debug("REQ-CONNECT", "tcp://127.0.0.1:3000");
-        const internalSend = (msg) => req.send([
-            msg.routingKey,
-            JSON.stringify(msg.headers),
-            JSON.stringify(msg.data)
-        ]);
+        const internalSend = (msg) => {
+            $debug("REQ-SEND", msg);
+            return req.send([
+                msg.routingKey,
+                JSON.stringify(msg.headers),
+                JSON.stringify(msg.data)
+            ]);
+        };
         const receiveReply = (callback) => __awaiter(this, void 0, void 0, function* () {
             $debug("REQ-RECV-AWAIT");
             const [msg] = yield req.receive();
@@ -39,7 +42,6 @@ exports.startClient = function () {
             while (fifoQueue.length > 0) {
                 const msg = fifoQueue.shift();
                 if (msg) {
-                    $debug("REQ-SEND", msg);
                     try {
                         yield internalSend(msg);
                         yield receiveReply(msg.callback);

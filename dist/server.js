@@ -44,7 +44,9 @@ exports.startServer = function () {
             $debug("REPLY-SEND", payload);
             return res.send(JSON.stringify(payload));
         };
-        const internalReceive = (routingKey, headers, payload) => {
+        const internalReceive = () => __awaiter(this, void 0, void 0, function* () {
+            const [routingKey, headers, payload] = yield res.receive();
+            $debug("RECV", routingKey.toString(), headers.toString(), payload.toString());
             const start = startTime();
             const _routingKey = routingKey.toString();
             const _worker = workers[_routingKey];
@@ -58,12 +60,10 @@ exports.startServer = function () {
             else {
                 return Promise.reject(new Error(`unknown routing key ${_routingKey}`));
             }
-        };
+        });
         while (!res.closed) {
             try {
-                const [routingKey, headers, payload] = yield res.receive();
-                $debug("RECV", routingKey.toString(), headers.toString(), payload.toString());
-                yield internalReceive(routingKey, headers, payload);
+                yield internalReceive();
             }
             catch (err) {
                 logger(err);

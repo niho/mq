@@ -32,12 +32,14 @@ export const startClient = async function() {
   req.connect("tcp://127.0.0.1:3000");
   $debug("REQ-CONNECT", "tcp://127.0.0.1:3000");
 
-  const internalSend = (msg: Message) =>
-    req.send([
+  const internalSend = (msg: Message) => {
+    $debug("REQ-SEND", msg);
+    return req.send([
       msg.routingKey,
       JSON.stringify(msg.headers),
       JSON.stringify(msg.data)
     ]);
+  };
 
   const receiveReply = async (callback: Callback): Promise<void> => {
     $debug("REQ-RECV-AWAIT");
@@ -51,7 +53,6 @@ export const startClient = async function() {
     while (fifoQueue.length > 0) {
       const msg = fifoQueue.shift();
       if (msg) {
-        $debug("REQ-SEND", msg);
         try {
           await internalSend(msg);
           await receiveReply(msg.callback);

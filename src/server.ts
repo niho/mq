@@ -66,11 +66,13 @@ export const startServer = async function() {
     return res.send(JSON.stringify(payload));
   };
 
-  const internalReceive = (
-    routingKey: Buffer,
-    headers: Buffer,
-    payload: Buffer
-  ): Promise<any> => {
+  const internalReceive = async (): Promise<any> => {
+    const [routingKey, headers, payload] = await res.receive();
+    $debug("RECV",
+      routingKey.toString(),
+      headers.toString(),
+      payload.toString()
+    );
     const start = startTime();
     const _routingKey = routingKey.toString();
     const _worker = workers[_routingKey];
@@ -89,13 +91,7 @@ export const startServer = async function() {
 
   while (!res.closed) {
     try {
-      const [routingKey, headers, payload] = await res.receive();
-      $debug("RECV",
-        routingKey.toString(),
-        headers.toString(),
-        payload.toString()
-      );
-      await internalReceive(routingKey, headers, payload);
+      await internalReceive();
     } catch (err) {
       logger(err);
     }
