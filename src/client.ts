@@ -3,92 +3,111 @@ import * as zmq from "zeromq-ng";
 
 const $debug = debug("mq:client");
 
-const defaultTimeout = 30 * 1000; // 30 seconds
+const defaultPort = 3001;
+// const defaultTimeout = 30 * 1000; // 30 seconds
 
 export interface Headers {
   [key: string]: any
 }
+
+export type Payload =
+  object | string | number | boolean | null;
 
 export type Callback =
   (msg: any, err?: Error) => void;
 
 interface Message {
   routingKey: string;
-  data: {} | Buffer;
-  headers: {} | Headers;
+  payload?: Payload;
+  headers?: Headers;
   callback: Callback;
 }
 
-const fifoQueue: Message[] = [];
+export class Client {
+  private readonly service: string;
+  private readonly port: number;
+  private readonly socket: zmq.Request;
+  private readonly fifoQueue: Message[];
 
-const req = new zmq.Request({
-  connectTimeout: defaultTimeout,
-  receiveTimeout: defaultTimeout,
-  sendTimeout: defaultTimeout,
-  correlate: true
-});
+  constructor(service?: string, port?: number) {
+    this.service = service || "127.0.0.1";
+    this.port = port || defaultPort;
+    this.fifoQueue = [];
+    this.drainQueue();
+  }
 
-export const startClient = async function() {
-  req.connect("tcp://127.0.0.1:3000");
-  $debug("REQ-CONNECT", "tcp://127.0.0.1:3000");
+  public close(): void {
+    this.socket.close();
+  }
 
-  const internalSend = (msg: Message) => {
-    $debug("REQ-SEND", msg);
-    return req.send([
-      msg.routingKey,
-      JSON.stringify(msg.headers),
-      JSON.stringify(msg.data)
-    ]);
-  };
+  public async rpc(
+      routingKey: string,
+      payload?: Payload,
+      headers?: Headers
+  ): Promise<any> {
+    return new Promise(async (resolve, reject) => {
+      const callback: Callback = (msg, err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(msg);
+        }
+      };
+      this.fifoQueue.push({
+        routingKey,
+        payload,
+        headers,
+        callback
+      });
+    });
+  }
 
-  const receiveReply = async (callback: Callback): Promise<void> => {
-    $debug("REQ-RECV-AWAIT");
-    const [msg] = await req.receive();
-    const data = JSON.parse(msg.toString());
-    $debug("REQ-RECV-REPLY", data);
-    return callback.call(undefined, data);
-  };
+  private internalConnect() {
+    this.socket = new zmq.Request({
+      receiveTimeout: 100
+    });
+    this.socket.connect(`tcp://${this.service}:${this.port}`);
+    $debug("CONNECT", `tcp://${this.service}:${this.port}`);
+  }
 
-  const drainQueue = async (): Promise<void> => {
-    while (fifoQueue.length > 0) {
-      const msg = fifoQueue.shift();
-      if (msg) {
-        try {
-          await internalSend(msg);
-          await receiveReply(msg.callback);
-        } catch (err) {
-          msg.callback(undefined, err);
+  private async drainQueue() {
+    $debug("FIFO-LENGTH", this.fifoQueue.length);
+    const msg = this.fifoQueue.shift();
+    if (msg) {
+      try {
+        await this.internalSend(msg);
+        await this.receiveReply(msg.callback);
+      } catch (err) {
+        msg.callback(undefined, err);
+        if (err.code === "EAGAIN") {
+          this.fifoQueue.push(msg);
+          this.socket.close();
+          this.socket = new Request();
+          this.socket.connect("");
+        } else {
+          throw err;
         }
       }
     }
-  };
-
-  while (!req.closed) {
-    await drainQueue();
+    if (!this.socket.closed) {
+      setTimeout(this.drainQueue.bind(this), 0);
+    }
   }
-};
 
+  private async internalSend(msg: Message): Promise<void> {
+    $debug("SEND", msg.routingKey, msg.headers, msg.payload);
+    return this.socket.send([
+      msg.routingKey,
+      JSON.stringify(msg.headers !== undefined ? msg.headers : {}),
+      JSON.stringify(msg.payload !== undefined ? msg.payload : {})
+    ]);
+  }
 
-// == RPC CALL ==
-
-export const rpc = (
-    routingKey: string,
-    data?: any,
-    headers?: Headers
-): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    const callback: Callback = (msg, err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(msg);
-      }
-    };
-    fifoQueue.push({
-      routingKey,
-      data: data ? data : {},
-      headers: headers ? headers : {},
-      callback
-    });
-  });
-};
+  private async receiveReply(callback: Callback): Promise<void> {
+    $debug("RECV-AWAIT");
+    const [msg] = await this.socket.receive();
+    const data = JSON.parse(msg.toString());
+    $debug("RECV-REPLY", data);
+    return callback.call(undefined, data);
+  }
+}

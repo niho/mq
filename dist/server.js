@@ -20,17 +20,18 @@ const green = (str) => process.env.NODE_ENV !== "production" ? `\x1b[32m${str}\x
 const startTime = () => process.hrtime();
 const elapsed = (start) => `${(process.hrtime(start)[1] / 1000000).toFixed(3)} ms`;
 const workers = {};
-const res = new zmq.Response();
+const res = new zmq.Dealer();
 exports.startServer = function () {
     return __awaiter(this, void 0, void 0, function* () {
-        yield res.bind("tcp://127.0.0.1:3000");
-        $debug("RES-BIND", "tcp://127.0.0.1:3000");
-        logger("Server bound to port 3000.");
-        const messageHandler = (workerFunc, message, headers) => {
+        res.connect("tcp://127.0.0.1:3002");
+        $debug("RES-BIND", "tcp://127.0.0.1:3002");
+        yield res.send(["", "hello"]);
+        $debug("RES-HELLO");
+        const messageHandler = (messageId, workerFunc, message, headers) => {
             try {
                 const result = workerFunc(message, headers);
                 if (result && result.then) {
-                    return Promise.resolve(result).then(sendReply);
+                    return Promise.resolve(result).then(sendReply(messageId));
                 }
                 else {
                     return Promise.resolve();
@@ -40,20 +41,24 @@ exports.startServer = function () {
                 return Promise.reject(error);
             }
         };
-        const sendReply = (payload) => {
-            $debug("REPLY-SEND", payload);
-            return res.send(JSON.stringify(payload));
+        const sendReply = (messageId) => (payload) => {
+            $debug("RES-REPLY-SEND", payload);
+            return res.send([
+                messageId,
+                Buffer.from(""),
+                Buffer.from(JSON.stringify(payload))
+            ]);
         };
         const internalReceive = () => __awaiter(this, void 0, void 0, function* () {
-            const [routingKey, headers, payload] = yield res.receive();
-            $debug("RECV", routingKey.toString(), headers.toString(), payload.toString());
+            const [id, , routingKey, headers, payload] = yield res.receive();
+            $debug("RES-RECV", id, routingKey.toString(), headers.toString(), payload.toString());
             const start = startTime();
             const _routingKey = routingKey.toString();
             const _worker = workers[_routingKey];
             if (_worker) {
                 const _headers = JSON.parse(headers.toString());
                 const _payload = JSON.parse(payload.toString());
-                return messageHandler(_worker, _payload, _headers)
+                return messageHandler(id, _worker, _payload, _headers)
                     .then(() => logger("MSG", _routingKey, green("OK"), elapsed(start)))
                     .catch((err) => logger("MSG", _routingKey, red("ERR"), elapsed(start), err));
             }

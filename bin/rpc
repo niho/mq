@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const mq = require("../dist/client.js");
+const mq = require("../dist/mq.js");
 const program = require("commander");
 
 program
@@ -11,15 +11,17 @@ program
   .option("-t, --ttl <milliseconds>", "timeout in milliseconds")
   .option("-s, --silent", "silent mode (don't output anything)")
   .option("-r, --repeat <N>", "repreat the request N times")
+  .option("-x, --random", "generate random payload data")
   .action(function(routingKey) {
-    const payload = program.data ? JSON.parse(program.data) : {};
+    const data = program.data ? JSON.parse(program.data) : {};
     const ttl = program.ttl ? parseInt(program.ttl) : undefined;
     const silent = program.silent ? true : false;
     const repeat = program.repeat ? parseInt(program.repeat) : 1;
     if (routingKey) {
-      mq.startClient();
+      const client = new mq.client.Client();
       Promise.all(Array.from(Array(repeat).keys()).map((n) => {
-        return mq.rpc(routingKey, payload, {})
+        const payload = program.random ? Math.random() : data;
+        return client.rpc(routingKey, payload, {})
           .then((msg) => { if (!silent) console.log(msg); })
           .catch((err) => { if (!silent) console.error(err); });
       }))

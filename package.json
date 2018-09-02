@@ -24,7 +24,7 @@
     "worker"
   ],
   "author": "Niklas Holmgren",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/insurello/mq/issues"
   },

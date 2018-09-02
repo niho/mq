@@ -36,15 +36,17 @@ interface Workers {
 }
 
 const workers: Workers = {};
-
-const res = new zmq.Response();
+const res = new zmq.Dealer();
 
 export const startServer = async function() {
-  await res.bind("tcp://127.0.0.1:3000");
-  $debug("RES-BIND", "tcp://127.0.0.1:3000");
-  logger("Server bound to port 3000.");
+  res.connect("tcp://127.0.0.1:3002");
+  $debug("RES-BIND", "tcp://127.0.0.1:3002");
+
+  await res.send(["", "hello"]);
+  $debug("RES-HELLO");
 
   const messageHandler = (
+    messageId: Buffer,
     workerFunc: Worker,
     message: any,
     headers: Headers
@@ -52,7 +54,7 @@ export const startServer = async function() {
     try {
       const result = workerFunc(message, headers);
       if (result && result.then) {
-        return Promise.resolve(result).then(sendReply);
+        return Promise.resolve(result).then(sendReply(messageId));
       } else {
         return Promise.resolve();
       }
@@ -61,14 +63,19 @@ export const startServer = async function() {
     }
   };
 
-  const sendReply = (payload: any): Promise<void> => {
-    $debug("REPLY-SEND", payload);
-    return res.send(JSON.stringify(payload));
+  const sendReply = (messageId: Buffer) => (payload: any): Promise<void> => {
+    $debug("RES-REPLY-SEND", payload);
+    return res.send([
+      messageId,
+      Buffer.from(""),
+      Buffer.from(JSON.stringify(payload))
+    ]);
   };
 
   const internalReceive = async (): Promise<any> => {
-    const [routingKey, headers, payload] = await res.receive();
-    $debug("RECV",
+    const [id, /* null */, routingKey, headers, payload] = await res.receive();
+    $debug("RES-RECV",
+      id,
       routingKey.toString(),
       headers.toString(),
       payload.toString()
@@ -79,7 +86,7 @@ export const startServer = async function() {
     if (_worker) {
       const _headers = JSON.parse(headers.toString());
       const _payload = JSON.parse(payload.toString());
-      return messageHandler(_worker, _payload, _headers)
+      return messageHandler(id, _worker, _payload, _headers)
         .then(() =>
           logger("MSG", _routingKey, green("OK"), elapsed(start)))
         .catch((err) =>
