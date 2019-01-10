@@ -3,7 +3,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const amqp = require("amqp");
 const async_mutex_1 = require("async-mutex");
 const uuidv4 = require("uuid/v4");
-exports.logger = console.log;
+const defaultTimeout = 30 * 1000;
+let logger = console.log;
+exports.setLogger = (newLogger) => {
+    logger = newLogger;
+};
+const red = (str) => process.env.NODE_ENV !== "production" ? `\x1b[31m${str}\x1b[0m` : str;
+const green = (str) => process.env.NODE_ENV !== "production" ? `\x1b[32m${str}\x1b[0m` : str;
+const startTime = () => process.hrtime();
+const elapsed = (start) => `${(process.hrtime(start)[1] / 1000000).toFixed(3)} ms`;
 const callbacks = {};
 const workers = {};
 const subscribers = {};
@@ -15,18 +23,18 @@ exports.connect = function () {
     let interval;
     const mutex = new async_mutex_1.Mutex();
     const connection = amqp.createConnection({
-        url: process.env.INSURELLO_AMQP_URL
+        url: process.env.AMQP_URL
     });
     connection.on("error", function (err) {
         if (err.stack) {
-            exports.logger(err.stack);
+            logger(err.stack);
         }
         else {
-            exports.logger(err);
+            logger(err);
         }
     });
     connection.on("close", function (hadError) {
-        exports.logger("Connection to AMQP broker was closed.", hadError ? "Reconnecting..." : "");
+        logger("Connection to AMQP broker was closed.", hadError ? "Reconnecting..." : "");
         connected = false;
     });
     connection.on("close", function () {
@@ -36,16 +44,16 @@ exports.connect = function () {
         clearInterval(interval);
     });
     connection.on("ready", function () {
-        exports.logger("Connection to AMQP broker is ready.");
-        connected = true;
+        logger("Connection to AMQP broker is ready.");
     });
     connection.on("ready", function () {
+        logger("Subscribing to reply queue.");
         subscribeReplyTo();
     });
     connection.on("ready", function () {
         for (const routingKey in workers) {
             if (workers.hasOwnProperty(routingKey)) {
-                workers[routingKey].forEach((_worker) => {
+                workers[routingKey].forEach(_worker => {
                     subscribeWorker(routingKey, _worker.func, _worker.options);
                 });
             }
@@ -54,7 +62,7 @@ exports.connect = function () {
     connection.on("ready", function () {
         for (const topic in subscribers) {
             if (subscribers.hasOwnProperty(topic)) {
-                subscribers[topic].forEach((_worker) => {
+                subscribers[topic].forEach(_worker => {
                     subscribeTopic(topic, _worker.func, _worker.options);
                 });
             }
@@ -66,6 +74,7 @@ exports.connect = function () {
     const subscribeReplyTo = function () {
         const q = connection.queue("", { exclusive: true }, function (info) {
             replyToQueue = info.name;
+            connected = true;
             q.subscribe({ exclusive: true }, function (message, _headers, deliveryInfo, _ack) {
                 for (const correlationId in callbacks) {
                     if (correlationId === deliveryInfo.correlationId) {
@@ -74,7 +83,7 @@ exports.connect = function () {
                                 callbacks[correlationId].call(undefined, message);
                             }
                             catch (error) {
-                                exports.logger(error);
+                                logger(error);
                             }
                         }
                     }
@@ -85,7 +94,10 @@ exports.connect = function () {
     const subscribeWorker = function (routingKey, func, options) {
         const q = connection.queue(routingKey, { autoDelete: false, durable: true }, function (_info) {
             q.subscribe({ ack: true, prefetchCount: 1 }, function (message, headers, deliveryInfo, ack) {
-                messageHandler(func, message, headers, deliveryInfo, ack, options);
+                const start = startTime();
+                messageHandler(func, message, headers, deliveryInfo, ack, options)
+                    .then(() => logger("MSG", ack.routingKey, green("OK"), elapsed(start)))
+                    .catch(err => logger("MSG", ack.routingKey, red("ERR"), elapsed(start), err));
             });
         });
     };
@@ -93,7 +105,10 @@ exports.connect = function () {
         const q = connection.queue(topic, { autoDelete: false, durable: true }, function (_info) {
             q.bind("amq.topic", topic);
             q.subscribe({ ack: true, prefetchCount: 1 }, function (message, headers, deliveryInfo, ack) {
-                messageHandler(func, message, headers, deliveryInfo, ack, options);
+                const start = startTime();
+                messageHandler(func, message, headers, deliveryInfo, ack, options)
+                    .then(() => logger("SUB", ack.routingKey, green("OK"), elapsed(start)))
+                    .catch(err => logger("SUB", ack.routingKey, red("ERR"), elapsed(start), err));
             });
         });
     };
@@ -101,36 +116,41 @@ exports.connect = function () {
         if (options.acknowledgeOnReceipt) {
             acknowledgeHandler.call(ack);
         }
-        const acknowledge = options.acknowledgeOnReceipt ?
-            ((error) => { exports.logger(error); }) :
-            acknowledgeHandler.bind(ack);
+        const acknowledge = options.acknowledgeOnReceipt
+            ? () => {
+            }
+            : acknowledgeHandler.bind(ack);
         const replyTo = deliveryInfo.replyTo;
         const correlationId = deliveryInfo.correlationId;
         try {
             const result = workerFunc(message, headers);
             if (result && result.then) {
-                result.then((value) => {
+                return Promise.resolve(result)
+                    .then(value => {
                     sendReply(replyTo, correlationId, value, headers);
                     acknowledge();
-                }, acknowledge);
+                })
+                    .catch(err => {
+                    acknowledge(err);
+                    return Promise.reject(err);
+                });
             }
             else {
                 acknowledge();
+                return Promise.resolve();
             }
         }
         catch (error) {
             acknowledge(error);
+            return Promise.reject(error);
         }
     };
     const acknowledgeHandler = function (error) {
         if (error) {
             this.reject(false);
-            exports.logger("MSG", this.routingKey, "(" + this.exchange + ")", "err");
-            exports.logger(error);
         }
         else {
             this.acknowledge(false);
-            exports.logger("MSG", this.routingKey, "(" + this.exchange + ")", "ok");
         }
     };
     const sendReply = function (replyTo, correlationId, value, headers) {
@@ -142,7 +162,7 @@ exports.connect = function () {
             };
             connection.publish(replyTo, value, options, function (err, msg) {
                 if (err) {
-                    exports.logger(msg);
+                    logger(msg);
                 }
             });
         }
@@ -151,29 +171,26 @@ exports.connect = function () {
         if (mutex.isLocked()) {
             return;
         }
-        mutex
-            .acquire()
-            .then((release) => {
+        mutex.acquire().then(release => {
             while (fifoQueue.length > 0) {
                 const msg = fifoQueue.shift();
                 if (msg) {
-                    internalPublish(msg)
-                        .catch(exports.logger);
+                    internalPublish(msg).catch(logger);
                 }
             }
             release();
         });
     };
     const removeEmptyOptions = (obj) => {
-        Object.keys(obj).forEach(key => (obj[key] && typeof obj[key] === "object") &&
-            removeEmptyOptions(obj[key]) ||
-            (obj[key] === undefined) && delete obj[key]);
+        Object.keys(obj).forEach(key => (obj[key] &&
+            typeof obj[key] === "object" &&
+            removeEmptyOptions(obj[key])) ||
+            (obj[key] === undefined && delete obj[key]));
         return obj;
     };
     const internalPublish = function (msg) {
         return new Promise((resolve, reject) => {
-            const exchange = connection
-                .exchange(msg.exchangeName, { confirm: true }, function () {
+            const exchange = connection.exchange(msg.exchangeName, { confirm: true }, function () {
                 const options = removeEmptyOptions(msg.options);
                 exchange.publish(msg.routingKey, msg.data, options, function (failed, errorMessage) {
                     if (failed) {
@@ -205,17 +222,19 @@ exports.worker = function (routingKey, func, options) {
     workers[routingKey] = workers[routingKey] || [];
     workers[routingKey].push({
         func,
-        options: options ? options : { acknowledgeOnReceipt: false }
+        options: options ? options : { acknowledgeOnReceipt: true }
     });
 };
 exports.rpc = function (routingKey, data, headers, ttl) {
     if (replyToQueue) {
-        const _ttl = ttl || 60 * 1000;
+        const _data = data || {};
+        const _ttl = ttl || defaultTimeout;
         const correlationId = uuidv4();
         const options = {
             contentType: "application/json",
             replyTo: replyToQueue,
             correlationId,
+            messageId: correlationId,
             expiration: _ttl.toString(),
             headers: headers ? headers : {}
         };
@@ -238,7 +257,7 @@ exports.rpc = function (routingKey, data, headers, ttl) {
             fifoQueue.push({
                 exchangeName: "",
                 routingKey,
-                data,
+                data: _data,
                 options
             });
         });
@@ -264,6 +283,7 @@ exports.subscribe = function (topic, func, options) {
     subscribers[topic] = subscribers[topic] || [];
     subscribers[topic].push({
         func,
-        options: options ? options : { acknowledgeOnReceipt: false }
+        options: options ? options : { acknowledgeOnReceipt: true }
     });
 };
+//# sourceMappingURL=queue.js.map
