@@ -1,12 +1,13 @@
+export declare type Handler = (req: Request) => Promise<void>;
 export interface Headers {
     [key: string]: unknown;
 }
+export interface Properties {
+    headers: Headers;
+    replyTo?: string;
+}
 export interface Request {
-    properties: {
-        headers: Headers;
-        type?: string;
-        replyTo?: string;
-    };
+    properties: Properties;
     body: any;
     ack: () => void;
     nack: () => void;
