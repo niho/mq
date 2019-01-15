@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/insurello/mq.git"
+    "url": "git+https://github.com/niho/mq.git"
   },
   "keywords": [
     "amqp",
@@ -26,9 +26,9 @@
   "author": "Niklas Holmgren",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/insurello/mq/issues"
+    "url": "https://github.com/niho/mq/issues"
   },
-  "homepage": "https://github.com/insurello/mq#readme",
+  "homepage": "https://github.com/niho/mq#readme",
   "dependencies": {
     "@types/amqplib": "^0.5.9",
     "amqplib": "^0.5.3",
@@ -53,7 +53,6 @@
     "source-map-support": "^0.5.5",
     "ts-node": "^4.0.2",
     "tslint": "^5.9.1",
-    "tslint-insurello": "git+https://github.com/insurello/tslint-insurello.git",
     "typescript": "^3.0.1"
   }
 }

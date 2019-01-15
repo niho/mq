@@ -11,25 +11,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const amqp = require("amqplib");
 const logger_1 = require("./logger");
 exports.connect = () => __awaiter(this, void 0, void 0, function* () {
-    const connection = yield amqp.connect(process.env.AMQP_URL ? process.env.AMQP_URL : "amqp://localhost");
-    return Promise.resolve({
-        handle: consumeQueue(connection)
-    });
+    try {
+        const connection = yield amqp.connect(process.env.AMQP_URL ? process.env.AMQP_URL : "amqp://localhost");
+        return Promise.resolve({
+            handle: consumeQueue(connection)
+        });
+    }
+    catch (err) {
+        logger_1.logger.error(err.stack ? err.stack : err.message);
+        process.exit(1);
+        throw err;
+    }
 });
 class Message {
-    constructor(channel, message) {
+    constructor(channel, msg) {
         this.channel = channel;
-        this.message = message;
+        this.message = msg;
         this.properties = {
-            headers: message.properties.headers,
-            replyTo: message.properties.replyTo
+            headers: msg.properties.headers,
+            replyTo: msg.properties.replyTo
         };
         try {
-            this.body = deserialize(message.content, message.properties.contentType, message.properties.contentEncoding);
+            this.body = deserialize(msg.content, msg.properties.contentType, msg.properties.contentEncoding);
         }
         catch (err) {
             logger_1.logger.warn("Failed to deserialize message.");
-            this.body = message.content;
+            this.body = msg.content;
         }
     }
     ack() {
@@ -113,4 +120,4 @@ const getContentType = (body, options) => {
         return "application/octet-stream";
     }
 };
-//# sourceMappingURL=backend_amqp.js.map
+//# sourceMappingURL=amqp.js.map

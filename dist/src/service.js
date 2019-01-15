@@ -6,14 +6,14 @@ const logger_1 = require("./logger");
 const response_1 = require("./response");
 exports.service = (desc) => {
     const _logger = desc.logger ? desc.logger : logger_1.logger;
-    return (options) => (req) => {
+    return (options) => (msg) => {
         return Promise.resolve(desc.init(options))
-            .then(context => desc.authorized(req.properties.headers, context))
-            .then(context => desc.forbidden(req.properties.headers, context))
+            .then(context => desc.authorized(msg.properties.headers, context))
+            .then(context => desc.forbidden(msg.properties.headers, context))
             .then(context => desc.response(context))
             .then(result => decoder_1.decode(desc.type, result))
-            .then(response_1.response(req))
-            .then(a => a, errors_1.errorHandler(req, _logger));
+            .then(response_1.response(msg))
+            .then(a => a, errors_1.errorHandler(msg, _logger));
     };
 };
 //# sourceMappingURL=service.js.map

@@ -1,6 +1,6 @@
 import * as amqp from "amqplib";
-import { logger } from "../logger";
-import * as request from "../request";
+import { logger } from "./logger";
+import * as message from "./message";
 
 export const connect = async () => {
   try {
@@ -17,28 +17,28 @@ export const connect = async () => {
   }
 };
 
-class Message implements request.Request {
-  public readonly properties: request.Properties;
+class Message implements message.Message {
+  public readonly properties: message.Properties;
   public readonly body: any;
   private readonly channel: amqp.Channel;
   private readonly message: amqp.ConsumeMessage;
 
-  constructor(channel: amqp.Channel, message: amqp.ConsumeMessage) {
+  constructor(channel: amqp.Channel, msg: amqp.ConsumeMessage) {
     this.channel = channel;
-    this.message = message;
+    this.message = msg;
     this.properties = {
-      headers: message.properties.headers,
-      replyTo: message.properties.replyTo
+      headers: msg.properties.headers,
+      replyTo: msg.properties.replyTo
     };
     try {
       this.body = deserialize(
-        message.content,
-        message.properties.contentType,
-        message.properties.contentEncoding
+        msg.content,
+        msg.properties.contentType,
+        msg.properties.contentEncoding
       );
     } catch (err) {
       logger.warn("Failed to deserialize message.");
-      this.body = message.content;
+      this.body = msg.content;
     }
   }
 
@@ -54,7 +54,7 @@ class Message implements request.Request {
     this.channel.reject(this.message);
   }
 
-  public reply(data: unknown, options?: request.ReplyOptions): void {
+  public reply(data: unknown, options?: message.ReplyOptions): void {
     if (this.message.properties.replyTo) {
       const contentType = getContentType(data, options);
       const payload = serialize(data, contentType);
@@ -74,7 +74,7 @@ class Message implements request.Request {
 
 const consumeQueue = (connection: amqp.Connection) => async (
   queueName: string,
-  handler: request.Handler
+  handler: message.Handler
 ) => {
   try {
     const channel = await connection.createChannel();
@@ -89,7 +89,7 @@ const consumeQueue = (connection: amqp.Connection) => async (
 
 const processMessage = (
   channel: amqp.Channel,
-  handler: request.Handler
+  handler: message.Handler
 ) => async (msg: amqp.ConsumeMessage | null) => {
   if (msg) {
     try {
@@ -126,7 +126,7 @@ const deserialize = (
   }
 };
 
-const getContentType = (body: unknown, options?: request.ReplyOptions) => {
+const getContentType = (body: unknown, options?: message.ReplyOptions) => {
   if (options && options.contentType) {
     return options.contentType;
   } else if (typeof body === "string") {

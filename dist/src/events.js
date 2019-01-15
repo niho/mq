@@ -6,21 +6,21 @@ const logger_1 = require("./logger");
 const defaultEventField = "event";
 exports.events = (desc) => {
     const _logger = desc.logger ? desc.logger : logger_1.logger;
-    return (options) => (req) => {
+    return (options) => (msg) => {
         return Promise.resolve(desc.init(options))
-            .then(context => decoder_1.decode(desc.type, req.body).then(data => isEventCallbackStyle(desc)
-            ? Promise.resolve(eventHandler(desc, req, data, context))
+            .then(context => decoder_1.decode(desc.type, msg.body).then(data => isEventCallbackStyle(desc)
+            ? Promise.resolve(eventHandler(desc, msg, data, context))
             : Promise.resolve(desc.event(data, context))))
-            .then(() => req.ack())
-            .then(a => a, errors_1.errorHandler(req, _logger));
+            .then(() => msg.ack())
+            .then(a => a, errors_1.errorHandler(msg, _logger));
     };
 };
-const eventHandler = (desc, req, data, context) => (typeof desc.event === "string" || desc.event === undefined) &&
-    req.body[desc.event || defaultEventField] &&
+const eventHandler = (desc, msg, data, context) => (typeof desc.event === "string" || desc.event === undefined) &&
+    msg.body[desc.event || defaultEventField] &&
     desc.events &&
-    desc.events[req.body[desc.event || defaultEventField]] &&
-    typeof desc.events[req.body[desc.event || defaultEventField]] === "function"
-    ? desc.events[req.body[desc.event || defaultEventField]](data, context)
+    desc.events[msg.body[desc.event || defaultEventField]] &&
+    typeof desc.events[msg.body[desc.event || defaultEventField]] === "function"
+    ? desc.events[msg.body[desc.event || defaultEventField]](data, context)
     : Promise.reject();
 const isEventCallbackStyle = (desc) => (typeof desc.event === "string" || desc.event === undefined) &&
     desc.events !== undefined;

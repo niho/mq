@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.response = (req) => (data, headers) => {
-    if (req.properties.replyTo && data) {
-        req.reply(data, { contentType: "application/json", headers });
+exports.response = (msg) => (data, headers) => {
+    if (msg.properties.replyTo && data) {
+        msg.reply(data, { contentType: "application/json", headers });
     }
     else {
-        req.ack();
+        msg.ack();
     }
 };
 //# sourceMappingURL=response.js.map

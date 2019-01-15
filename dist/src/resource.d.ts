@@ -1,7 +1,7 @@
 import * as t from "io-ts";
 import { Logger } from "./logger";
-import { Headers, Request } from "./request";
-export interface Resource<T, O, C> {
+import { Headers } from "./message";
+export interface IResource<T, O, C> {
     type: [t.Type<T>, t.Type<O>];
     init: (options: any) => PromiseLike<C> | C;
     authorized: (headers: Headers, context: C) => PromiseLike<C> | C;
@@ -11,4 +11,4 @@ export interface Resource<T, O, C> {
     response: (context: C) => PromiseLike<O> | O;
     logger?: Logger;
 }
-export declare const resource: <T, O = unknown, C = any>(desc: Resource<T, O, C>) => (options: any) => (req: Request) => Promise<void>;
+export declare const resource: <T, O = unknown, C = any>(desc: IResource<T, O, C>) => (options: any) => (msg: import("./message").IMessage) => Promise<void>;

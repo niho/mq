@@ -71,17 +71,17 @@ const poll = (queueUrl, handler) => __awaiter(this, void 0, void 0, function* ()
         setTimeout(() => poll(queueUrl, handler), 1000);
     }
 });
-const processMessage = (queueUrl, handler) => (message) => __awaiter(this, void 0, void 0, function* () {
+const processMessage = (queueUrl, handler) => (msg) => __awaiter(this, void 0, void 0, function* () {
     try {
-        logger_1.logger.verbose("message", message);
-        yield handler(new Message(queueUrl, message));
+        logger_1.logger.verbose("message", msg);
+        yield handler(new Message(queueUrl, msg));
     }
     catch (err) {
-        logger_1.logger.error(err.stack ? err.stack : err.message, message);
+        logger_1.logger.error(err.stack ? err.stack : err.message, msg);
     }
 });
 const headers = (attributes) => {
-    return Object.keys(attributes).reduce(function (result, key) {
+    return Object.keys(attributes).reduce((result, key) => {
         switch (attributes[key].DataType) {
             case "String":
                 result[key] = parseFloat(attributes[key].StringValue);
@@ -96,4 +96,4 @@ const headers = (attributes) => {
         return result;
     }, {});
 };
-//# sourceMappingURL=backend_sqs.js.map
+//# sourceMappingURL=sqs.js.map

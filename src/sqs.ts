@@ -1,11 +1,11 @@
 import * as AWS from "aws-sdk";
 import { logger } from "./logger";
-import * as request from "./request";
+import * as message from "./message";
 
 const sqs = new AWS.SQS();
 
-class Message implements request.Request {
-  public readonly properties: request.Properties;
+class Message implements message.Message {
+  public readonly properties: message.Properties;
   public readonly body: any;
   private readonly queueUrl: string;
   private readonly message: AWS.SQS.Message;
@@ -51,16 +51,16 @@ class Message implements request.Request {
     // nop
   }
 
-  public reply(_data: unknown, _options?: request.ReplyOptions): void {
+  public reply(_data: unknown, _options?: message.ReplyOptions): void {
     // nop
   }
 }
 
-export const handle = (queueUrl: string, handler: request.Handler) => {
+export const handle = (queueUrl: string, handler: message.Handler) => {
   poll(queueUrl, handler);
 };
 
-const poll = async (queueUrl: string, handler: request.Handler) => {
+const poll = async (queueUrl: string, handler: message.Handler) => {
   try {
     const response = await sqs.receiveMessage({ QueueUrl: queueUrl }).promise();
     if (response.Messages && response.Messages.length > 0) {
@@ -77,21 +77,21 @@ const poll = async (queueUrl: string, handler: request.Handler) => {
   }
 };
 
-const processMessage = (queueUrl: string, handler: request.Handler) => async (
-  message: AWS.SQS.Message
+const processMessage = (queueUrl: string, handler: message.Handler) => async (
+  msg: AWS.SQS.Message
 ) => {
   try {
-    logger.verbose("message", message);
-    await handler(new Message(queueUrl, message));
+    logger.verbose("message", msg);
+    await handler(new Message(queueUrl, msg));
   } catch (err) {
-    logger.error(err.stack ? err.stack : err.message, message);
+    logger.error(err.stack ? err.stack : err.message, msg);
   }
 };
 
 const headers = (
   attributes: AWS.SQS.MessageBodyAttributeMap
-): request.Headers => {
-  return Object.keys(attributes).reduce(function(result: any, key) {
+): message.Headers => {
+  return Object.keys(attributes).reduce((result: any, key) => {
     switch (attributes[key].DataType) {
       case "String":
         result[key] = parseFloat(attributes[key].StringValue as string);

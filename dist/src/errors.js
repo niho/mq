@@ -7,22 +7,22 @@ const isError = (err) => err &&
     typeof err.error === "string" &&
     err.error_description !== undefined &&
     typeof err.error_description === "string";
-exports.errorHandler = (req, logger) => (err) => {
+exports.errorHandler = (msg, logger) => (err) => {
     if (err instanceof Error) {
-        req.nack();
-        logger.error(err.stack ? err.stack : err.message, req.properties);
+        msg.nack();
+        logger.error(err.stack ? err.stack : err.message, msg.properties);
     }
     else if (isError(err)) {
-        response_1.response(req)(err, { "x-error": err.error });
-        logger.warn(`${err}`, req.properties);
+        response_1.response(msg)(err, { "x-error": err.error });
+        logger.warn(`${err}`, msg.properties);
     }
     else if (typeof err === "string") {
-        response_1.response(req)({ error: err }, { "x-error": err });
-        logger.warn(`${err}`, req.properties);
+        response_1.response(msg)({ error: err }, { "x-error": err });
+        logger.warn(`${err}`, msg.properties);
     }
     else {
-        req.reject();
-        logger.verbose("rejected", req.properties);
+        msg.reject();
+        logger.verbose("rejected", msg.properties);
     }
 };
 //# sourceMappingURL=errors.js.map
