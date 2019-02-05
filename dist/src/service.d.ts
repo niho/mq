@@ -1,12 +1,12 @@
 import * as t from "io-ts";
 import { Logger } from "./logger";
 import { Headers } from "./message";
-export interface IService<O, C> {
-    type: t.Type<O>;
+export interface IService<T, C, O> {
+    type: t.Type<T, O>;
     init: (options: any) => PromiseLike<C> | C;
     authorized: (headers: Headers, context: C) => PromiseLike<C> | C;
     forbidden: (headers: Headers, context: C) => PromiseLike<C> | C;
-    response: (context: C) => PromiseLike<O> | O;
+    response: (context: C) => PromiseLike<T> | T;
     logger?: Logger;
 }
-export declare const service: <O = unknown, C = any>(desc: IService<O, C>) => (options: any) => (msg: import("./message").IMessage) => Promise<void>;
+export declare const service: <T = unknown, C = any, O = T>(desc: IService<T, C, O>) => (options: any) => (msg: import("./message").IMessage) => Promise<void>;

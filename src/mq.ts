@@ -3,9 +3,9 @@ import * as _logger from "./logger";
 import * as _resource from "./resource";
 import * as _service from "./service";
 
-export type Events<T, C> = _events.Events<T, C>;
-export type Resource<T, O, C> = _resource.IResource<T, O, C>;
-export type Service<O, C> = _service.IService<O, C>;
+export type Events<T, C, O> = _events.Events<T, C, O>;
+export type Resource<T, U, C, TO, UO> = _resource.IResource<T, U, C, TO, UO>;
+export type Service<T, C, O> = _service.IService<T, C, O>;
 
 export const events = _events.events;
 export const resource = _resource.resource;

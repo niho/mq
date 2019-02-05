@@ -5,18 +5,20 @@ import { Logger, logger } from "./logger";
 import { Headers, Message } from "./message";
 import { response } from "./response";
 
-export interface IResource<T, O, C> {
-  type: [t.Type<T>, t.Type<O>];
+export interface IResource<T, U, C, TO, UO> {
+  type: [t.Type<T, TO>, t.Type<U, UO>];
   init: (options: any) => PromiseLike<C> | C;
   authorized: (headers: Headers, context: C) => PromiseLike<C> | C;
   exists: (headers: Headers, context: C) => PromiseLike<C> | C;
   forbidden: (headers: Headers, context: C) => PromiseLike<C> | C;
   update: (data: T, context: C) => PromiseLike<C> | C;
-  response: (context: C) => PromiseLike<O> | O;
+  response: (context: C) => PromiseLike<U> | U;
   logger?: Logger;
 }
 
-export const resource = <T, O = t.mixed, C = any>(desc: IResource<T, O, C>) => {
+export const resource = <T, U = t.mixed, C = any, TO = T, UO = U>(
+  desc: IResource<T, U, C, TO, UO>
+) => {
   const _logger = desc.logger ? desc.logger : logger;
   return (options: any) => (msg: Message) => {
     return Promise.resolve(desc.init(options))
