@@ -14,10 +14,7 @@ sinon.stub(logger, "verbose");
 describe("errors", () => {
   describe("errorHandler()", () => {
     const req = {
-      properties: {
-        headers: {},
-        replyTo: "reply-queue"
-      },
+      headers: {},
       body: {},
       ack: sinon.spy(),
       nack: sinon.spy(),

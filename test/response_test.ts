@@ -9,10 +9,7 @@ chai.use(chaiAsPromised);
 describe("response", () => {
   describe("response()", () => {
     const req = {
-      properties: {
-        headers: {},
-        replyTo: "reply-queue"
-      },
+      headers: {},
       body: {},
       ack: sinon.spy(),
       nack: sinon.spy(),
@@ -27,7 +24,7 @@ describe("response", () => {
       req.reject.resetHistory();
     });
 
-    describe("with a reply-to queue, response body, and headers", () => {
+    describe("with a response body and headers", () => {
       beforeEach(() => response(req)({ test: "test" }, { header: "test" }));
 
       it("should reply", () => req.reply.called.should.equal(true));
@@ -44,17 +41,6 @@ describe("response", () => {
         req.reply.lastCall.args[1].should.deep.include({
           contentType: "application/json"
         }));
-    });
-
-    describe("without a reply-to queue", () => {
-      beforeEach(() =>
-        response({ ...req, properties: { replyTo: undefined, headers: {} } })(
-          { test: "test" },
-          { header: "test" }
-        )
-      );
-
-      it("should ack", () => req.ack.called.should.equal(true));
     });
 
     describe("without a response body", () => {

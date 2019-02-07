@@ -19,11 +19,8 @@ describe("resource", () => {
   };
 
   const req = {
-    properties: {
-      headers: {
-        test: "header"
-      },
-      replyTo: "reply-queue"
+    headers: {
+      test: "header"
     },
     body: { test: "test" },
     ack: sinon.spy(),

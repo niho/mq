@@ -20,8 +20,8 @@ export const service = <T = t.mixed, C = any, O = T>(
   const _logger = desc.logger ? desc.logger : logger;
   return (options: any) => (msg: Message) => {
     return Promise.resolve(desc.init(options))
-      .then(context => desc.authorized(msg.properties.headers, context))
-      .then(context => desc.forbidden(msg.properties.headers, context))
+      .then(context => desc.authorized(msg.headers, context))
+      .then(context => desc.forbidden(msg.headers, context))
       .then(context => desc.response(context))
       .then(result => decode(desc.type, result))
       .then(response(msg))

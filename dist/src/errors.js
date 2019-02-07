@@ -10,19 +10,19 @@ const isError = (err) => err &&
 exports.errorHandler = (msg, logger) => (err) => {
     if (err instanceof Error) {
         msg.nack();
-        logger.error(err.stack ? err.stack : err.message, msg.properties);
+        logger.error(err.stack ? err.stack : err.message, msg);
     }
     else if (isError(err)) {
         response_1.response(msg)(err, { "x-error": err.error });
-        logger.warn(`${err}`, msg.properties);
+        logger.warn(`${err}`, msg);
     }
     else if (typeof err === "string") {
         response_1.response(msg)({ error: err }, { "x-error": err });
-        logger.warn(`${err}`, msg.properties);
+        logger.warn(`${err}`, msg);
     }
     else {
         msg.reject();
-        logger.verbose("rejected", msg.properties);
+        logger.verbose("rejected", msg);
     }
 };
 //# sourceMappingURL=errors.js.map

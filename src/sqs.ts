@@ -5,7 +5,7 @@ import * as message from "./message";
 const sqs = new AWS.SQS();
 
 class Message implements message.Message {
-  public readonly properties: message.Properties;
+  public readonly headers: message.Headers;
   public readonly body: any;
   private readonly queueUrl: string;
   private readonly message: AWS.SQS.Message;
@@ -13,10 +13,7 @@ class Message implements message.Message {
   constructor(queueUrl: string, msg: AWS.SQS.Message) {
     this.queueUrl = queueUrl;
     this.message = msg;
-    this.properties = {
-      headers: msg.MessageAttributes ? headers(msg.MessageAttributes) : [],
-      replyTo: undefined
-    };
+    this.headers = msg.MessageAttributes ? headers(msg.MessageAttributes) : [];
     try {
       this.body = msg.Body ? JSON.parse(msg.Body) : undefined;
     } catch (err) {

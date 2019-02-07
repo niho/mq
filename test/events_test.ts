@@ -7,9 +7,7 @@ chai.should();
 
 describe("events", () => {
   const req = {
-    properties: {
-      headers: {}
-    },
+    headers: {},
     body: {},
     ack: sinon.spy(),
     nack: sinon.spy(),

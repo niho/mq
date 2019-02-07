@@ -20,15 +20,15 @@ export const errorHandler = (msg: Message, logger: Logger) => (
 ) => {
   if (err instanceof Error) {
     msg.nack();
-    logger.error(err.stack ? err.stack : err.message, msg.properties);
+    logger.error(err.stack ? err.stack : err.message, msg);
   } else if (isError(err)) {
     response(msg)(err, { "x-error": err.error });
-    logger.warn(`${err}`, msg.properties);
+    logger.warn(`${err}`, msg);
   } else if (typeof err === "string") {
     response(msg)({ error: err }, { "x-error": err });
-    logger.warn(`${err}`, msg.properties);
+    logger.warn(`${err}`, msg);
   } else {
     msg.reject();
-    logger.verbose("rejected", msg.properties);
+    logger.verbose("rejected", msg);
   }
 };

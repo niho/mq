@@ -22,9 +22,9 @@ export const resource = <T, U = t.mixed, C = any, TO = T, UO = U>(
   const _logger = desc.logger ? desc.logger : logger;
   return (options: any) => (msg: Message) => {
     return Promise.resolve(desc.init(options))
-      .then(context => desc.authorized(msg.properties.headers, context))
-      .then(context => desc.exists(msg.properties.headers, context))
-      .then(context => desc.forbidden(msg.properties.headers, context))
+      .then(context => desc.authorized(msg.headers, context))
+      .then(context => desc.exists(msg.headers, context))
+      .then(context => desc.forbidden(msg.headers, context))
       .then(context =>
         decode(desc.type[0], msg.body).then(data =>
           Promise.resolve(desc.update(data, context))

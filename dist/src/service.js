@@ -8,8 +8,8 @@ exports.service = (desc) => {
     const _logger = desc.logger ? desc.logger : logger_1.logger;
     return (options) => (msg) => {
         return Promise.resolve(desc.init(options))
-            .then(context => desc.authorized(msg.properties.headers, context))
-            .then(context => desc.forbidden(msg.properties.headers, context))
+            .then(context => desc.authorized(msg.headers, context))
+            .then(context => desc.forbidden(msg.headers, context))
             .then(context => desc.response(context))
             .then(result => decoder_1.decode(desc.type, result))
             .then(response_1.response(msg))

@@ -18,7 +18,7 @@ export const connect = async () => {
 };
 
 class Message implements message.Message {
-  public readonly properties: message.Properties;
+  public readonly headers: message.Headers;
   public readonly body: any;
   private readonly channel: amqp.Channel;
   private readonly message: amqp.ConsumeMessage;
@@ -26,10 +26,7 @@ class Message implements message.Message {
   constructor(channel: amqp.Channel, msg: amqp.ConsumeMessage) {
     this.channel = channel;
     this.message = msg;
-    this.properties = {
-      headers: msg.properties.headers,
-      replyTo: msg.properties.replyTo
-    };
+    this.headers = msg.properties.headers;
     try {
       this.body = deserialize(
         msg.content,

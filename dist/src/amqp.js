@@ -27,10 +27,7 @@ class Message {
     constructor(channel, msg) {
         this.channel = channel;
         this.message = msg;
-        this.properties = {
-            headers: msg.properties.headers,
-            replyTo: msg.properties.replyTo
-        };
+        this.headers = msg.properties.headers;
         try {
             this.body = deserialize(msg.content, msg.properties.contentType, msg.properties.contentEncoding);
         }

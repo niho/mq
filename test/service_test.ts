@@ -17,11 +17,8 @@ describe("service", () => {
   };
 
   const req = {
-    properties: {
-      headers: {
-        test: "header"
-      },
-      replyTo: "reply-queue"
+    headers: {
+      test: "header"
     },
     body: {},
     ack: sinon.spy(),

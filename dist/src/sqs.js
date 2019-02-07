@@ -15,10 +15,7 @@ class Message {
     constructor(queueUrl, msg) {
         this.queueUrl = queueUrl;
         this.message = msg;
-        this.properties = {
-            headers: msg.MessageAttributes ? headers(msg.MessageAttributes) : [],
-            replyTo: undefined
-        };
+        this.headers = msg.MessageAttributes ? headers(msg.MessageAttributes) : [];
         try {
             this.body = msg.Body ? JSON.parse(msg.Body) : undefined;
         }
