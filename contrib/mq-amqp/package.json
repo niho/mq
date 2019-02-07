@@ -1,0 +1,28 @@
+{
+  "name": "mq-amqp",
+  "version": "1.0.0",
+  "description": "AMQP backend for MQ.",
+  "main": "./amqp.js",
+  "types": "./amqp.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niho/mq.git"
+  },
+  "keywords": [
+    "amqp",
+    "rpc",
+    "pub-sub",
+    "queue",
+    "worker"
+  ],
+  "author": "Niklas Holmgren",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/niho/mq/issues"
+  },
+  "homepage": "https://github.com/niho/mq#readme",
+  "dependencies": {
+    "@types/amqplib": "^0.5.9",
+    "amqplib": "^0.5.3"
+  }
+}

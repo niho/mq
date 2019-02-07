@@ -1,16 +1,12 @@
-import * as AWS from "aws-sdk";
-import { logger } from "./logger";
-import * as message from "./message";
-
+const AWS = require("aws-sdk");
 const sqs = new AWS.SQS();
 
-class Message implements message.Message {
-  public readonly headers: message.Headers;
-  public readonly body: any;
-  private readonly queueUrl: string;
-  private readonly message: AWS.SQS.Message;
+exports.handle = (queueUrl, handler) => {
+  poll(queueUrl, handler);
+};
 
-  constructor(queueUrl: string, msg: AWS.SQS.Message) {
+class Message {
+  constructor(queueUrl, msg) {
     this.queueUrl = queueUrl;
     this.message = msg;
     this.headers = msg.MessageAttributes ? headers(msg.MessageAttributes) : [];
@@ -21,7 +17,7 @@ class Message implements message.Message {
     }
   }
 
-  public ack(): void {
+  ack() {
     if (this.message.ReceiptHandle) {
       sqs
         .deleteMessage({
@@ -32,7 +28,7 @@ class Message implements message.Message {
     }
   }
 
-  public nack(): void {
+  nack() {
     if (this.message.ReceiptHandle) {
       sqs
         .changeMessageVisibility({
@@ -44,54 +40,43 @@ class Message implements message.Message {
     }
   }
 
-  public reject(): void {
+  reject() {
     // nop
   }
 
-  public reply(_data: unknown, _options?: message.ReplyOptions): void {
+  reply(_data, _options) {
     // nop
   }
 }
 
-export const handle = (queueUrl: string, handler: message.Handler) => {
-  poll(queueUrl, handler);
-};
-
-const poll = async (queueUrl: string, handler: message.Handler) => {
+const poll = async (queueUrl, handler) => {
   try {
     const response = await sqs.receiveMessage({ QueueUrl: queueUrl }).promise();
     if (response.Messages && response.Messages.length > 0) {
       await Promise.all(
         response.Messages.map(processMessage(queueUrl, handler))
       );
-    } else {
-      logger.silly("poll", response);
     }
     poll(queueUrl, handler);
   } catch (err) {
-    logger.error(err.stack ? err.stack : err.message);
+    console.log(err.stack ? err.stack : err.message);
     setTimeout(() => poll(queueUrl, handler), 1000);
   }
 };
 
-const processMessage = (queueUrl: string, handler: message.Handler) => async (
-  msg: AWS.SQS.Message
-) => {
+const processMessage = (queueUrl, handler) => async (msg) => {
   try {
-    logger.verbose("message", msg);
     await handler(new Message(queueUrl, msg));
   } catch (err) {
-    logger.error(err.stack ? err.stack : err.message, msg);
+    console.log(err.stack ? err.stack : err.message, msg);
   }
 };
 
-const headers = (
-  attributes: AWS.SQS.MessageBodyAttributeMap
-): message.Headers => {
-  return Object.keys(attributes).reduce((result: any, key) => {
+const headers = (attributes) => {
+  return Object.keys(attributes).reduce((result, key) => {
     switch (attributes[key].DataType) {
       case "String":
-        result[key] = parseFloat(attributes[key].StringValue as string);
+        result[key] = parseFloat(attributes[key].StringValue);
         break;
       case "Number":
         result[key] = attributes[key].StringValue;

@@ -1,0 +1,20 @@
+{
+  "name": "mq-sqs",
+  "version": "1.0.0",
+  "description": "AWS SQS backend for MQ.",
+  "main": "./dist/src/sqs.js",
+  "types": "./dist/src/sqs.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niho/mq.git"
+  },
+  "author": "Niklas Holmgren",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/niho/mq/issues"
+  },
+  "homepage": "https://github.com/niho/mq#readme",
+  "dependencies": {
+    "aws-sdk": "^2.386.0"
+  }
+}
