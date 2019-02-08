@@ -1,0 +1,20 @@
+{
+  "name": "mq-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda backend for MQ.",
+  "main": "./dist/src/lambda.js",
+  "types": "./dist/src/lambda.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niho/mq.git"
+  },
+  "author": "Niklas Holmgren",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/niho/mq/issues"
+  },
+  "homepage": "https://github.com/niho/mq#readme",
+  "dependencies": {
+    "aws-sdk": "^2.386.0"
+  }
+}

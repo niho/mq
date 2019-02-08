@@ -9,7 +9,7 @@ class Message {
   constructor(queueUrl, msg) {
     this.queueUrl = queueUrl;
     this.message = msg;
-    this.headers = msg.MessageAttributes ? headers(msg.MessageAttributes) : [];
+    this.headers = msg.MessageAttributes ? headers(msg.MessageAttributes) : {};
     try {
       this.body = msg.Body ? JSON.parse(msg.Body) : undefined;
     } catch (err) {
