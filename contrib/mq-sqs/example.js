@@ -9,5 +9,5 @@ sqs.handle(
     event: (data, context) => {
       console.log(data);
     }
-  })({})
+  })
 );

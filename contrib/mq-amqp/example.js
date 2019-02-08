@@ -11,7 +11,7 @@ amqp.connect()
         event: (data, context) => {
           console.log(data);
         }
-      })({})
+      })
     );
   })
   .catch((err) => {

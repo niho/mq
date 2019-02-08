@@ -29,9 +29,12 @@ interface IEventCallbackStyle<T, C, O> {
   logger?: Logger;
 }
 
-export const events = <T, C = any, O = T>(desc: Events<T, C, O>) => {
+export const events = <T, C = any, O = T>(
+  desc: Events<T, C, O>,
+  options: any = {}
+) => {
   const _logger = desc.logger ? desc.logger : logger;
-  return (options: any) => (msg: Message) => {
+  return (msg: Message) => {
     return Promise.resolve(desc.init(options))
       .then(context =>
         decode(desc.type, msg.body).then(data =>

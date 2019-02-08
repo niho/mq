@@ -15,10 +15,11 @@ export interface IService<T, C, O> {
 }
 
 export const service = <T = t.mixed, C = any, O = T>(
-  desc: IService<T, C, O>
+  desc: IService<T, C, O>,
+  options: any = {}
 ) => {
   const _logger = desc.logger ? desc.logger : logger;
-  return (options: any) => (msg: Message) => {
+  return (msg: Message) => {
     return Promise.resolve(desc.init(options))
       .then(context => desc.authorized(msg.headers, context))
       .then(context => desc.forbidden(msg.headers, context))

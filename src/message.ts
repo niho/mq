@@ -1,4 +1,4 @@
-export type Handler = (options: any) => (msg: IMessage) => Promise<void>;
+export type Handler = (msg: IMessage) => Promise<void>;
 export type Headers = IHeaders;
 export type Message = IMessage;
 export type ReplyOptions = IReplyOptions;

@@ -17,5 +17,5 @@ interface IEventCallbackStyle<T, C, O> {
     };
     logger?: Logger;
 }
-export declare const events: <T, C = any, O = T>(desc: Events<T, C, O>) => (options: any) => (msg: import("./message").IMessage) => Promise<void>;
+export declare const events: <T, C = any, O = T>(desc: Events<T, C, O>, options?: any) => (msg: import("./message").IMessage) => Promise<void>;
 export {};

@@ -4,9 +4,9 @@ const decoder_1 = require("./decoder");
 const errors_1 = require("./errors");
 const logger_1 = require("./logger");
 const response_1 = require("./response");
-exports.service = (desc) => {
+exports.service = (desc, options = {}) => {
     const _logger = desc.logger ? desc.logger : logger_1.logger;
-    return (options) => (msg) => {
+    return (msg) => {
         return Promise.resolve(desc.init(options))
             .then(context => desc.authorized(msg.headers, context))
             .then(context => desc.forbidden(msg.headers, context))

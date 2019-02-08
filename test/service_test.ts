@@ -39,7 +39,7 @@ describe("service", () => {
   });
 
   describe("init", () => {
-    beforeEach(() => service(desc)({ test: "test" })(req));
+    beforeEach(() => service(desc, { test: "test" })(req));
 
     it("should be called", () => desc.init.called.should.equal(true));
 
@@ -48,7 +48,7 @@ describe("service", () => {
   });
 
   describe("authorized", () => {
-    beforeEach(() => service(desc)({})(req));
+    beforeEach(() => service(desc)(req));
 
     it("should be called", () => desc.authorized.called.should.equal(true));
 
@@ -60,7 +60,7 @@ describe("service", () => {
   });
 
   describe("forbidden", () => {
-    beforeEach(() => service(desc)({})(req));
+    beforeEach(() => service(desc)(req));
 
     it("should be called", () => desc.forbidden.called.should.equal(true));
 
@@ -72,7 +72,7 @@ describe("service", () => {
   });
 
   describe("response", () => {
-    beforeEach(() => service(desc)({})(req));
+    beforeEach(() => service(desc)(req));
 
     it("should be called", () => desc.response.called.should.equal(true));
 
@@ -80,13 +80,13 @@ describe("service", () => {
       desc.response.lastCall.args[0].should.deep.equal({}));
 
     describe("with valid response data", () => {
-      beforeEach(() => service(desc)({ test: "test" })(req));
+      beforeEach(() => service(desc, { test: "test" })(req));
       it("should reply", () => req.reply.called.should.equal(true));
     });
 
     describe("with invalid response data", () => {
       beforeEach(() =>
-        service({ ...desc, type: t.string })({ test: "test" })(req)
+        service({ ...desc, type: t.string }, { test: "test" })(req)
       );
 
       it("should nack", () => req.nack.called.should.equal(true));
@@ -95,29 +95,27 @@ describe("service", () => {
 
   describe("error handling", () => {
     describe("init rejects with error", () => {
-      beforeEach(() =>
-        service({ ...desc, init: sinon.stub().rejects() })({})(req)
-      );
+      beforeEach(() => service({ ...desc, init: sinon.stub().rejects() })(req));
       it("should nack", () => req.nack.called.should.equal(true));
     });
 
     describe("authorized rejects with error", () => {
       beforeEach(() =>
-        service({ ...desc, authorized: sinon.stub().rejects() })({})(req)
+        service({ ...desc, authorized: sinon.stub().rejects() })(req)
       );
       it("should nack", () => req.nack.called.should.equal(true));
     });
 
     describe("forbidden rejects with error", () => {
       beforeEach(() =>
-        service({ ...desc, forbidden: sinon.stub().rejects() })({})(req)
+        service({ ...desc, forbidden: sinon.stub().rejects() })(req)
       );
       it("should nack", () => req.nack.called.should.equal(true));
     });
 
     describe("response rejects with error", () => {
       beforeEach(() =>
-        service({ ...desc, response: sinon.stub().rejects() })({})(req)
+        service({ ...desc, response: sinon.stub().rejects() })(req)
       );
       it("should nack", () => req.nack.called.should.equal(true));
     });

@@ -30,21 +30,21 @@ describe("events", () => {
     };
 
     describe("incoming event", () => {
-      beforeEach(() => events(desc)({})(req));
+      beforeEach(() => events(desc)(req));
       it("should ack", () => req.ack.called.should.be.true);
     });
 
     describe("error handling", () => {
       describe("init rejects with error", () => {
         beforeEach(() =>
-          events({ ...desc, init: sinon.stub().rejects() })({})(req)
+          events({ ...desc, init: sinon.stub().rejects() })(req)
         );
         it("should nack", () => req.nack.called.should.equal(true));
       });
 
       describe("event rejects with error", () => {
         beforeEach(() =>
-          events({ ...desc, event: sinon.stub().rejects() })({})(req)
+          events({ ...desc, event: sinon.stub().rejects() })(req)
         );
         it("should nack", () => req.nack.called.should.equal(true));
       });
@@ -61,12 +61,12 @@ describe("events", () => {
     };
 
     describe("incoming event", () => {
-      beforeEach(() => events(desc)({})(req));
+      beforeEach(() => events(desc)(req));
       it("should reject", () => req.reject.called.should.be.true);
     });
 
     describe("'test' event", () => {
-      beforeEach(() => events(desc)({})({ ...req, body: { event: "test" } }));
+      beforeEach(() => events(desc)({ ...req, body: { event: "test" } }));
       it("should ack", () => req.ack.called.should.be.true);
       it("should call 'test'", () => desc.events.test.called.should.be.true);
     });

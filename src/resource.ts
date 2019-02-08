@@ -17,10 +17,11 @@ export interface IResource<T, U, C, TO, UO> {
 }
 
 export const resource = <T, U = t.mixed, C = any, TO = T, UO = U>(
-  desc: IResource<T, U, C, TO, UO>
+  desc: IResource<T, U, C, TO, UO>,
+  options: any = {}
 ) => {
   const _logger = desc.logger ? desc.logger : logger;
-  return (options: any) => (msg: Message) => {
+  return (msg: Message) => {
     return Promise.resolve(desc.init(options))
       .then(context => desc.authorized(msg.headers, context))
       .then(context => desc.exists(msg.headers, context))

@@ -4,9 +4,9 @@ const decoder_1 = require("./decoder");
 const errors_1 = require("./errors");
 const logger_1 = require("./logger");
 const defaultEventField = "event";
-exports.events = (desc) => {
+exports.events = (desc, options = {}) => {
     const _logger = desc.logger ? desc.logger : logger_1.logger;
-    return (options) => (msg) => {
+    return (msg) => {
         return Promise.resolve(desc.init(options))
             .then(context => decoder_1.decode(desc.type, msg.body).then(data => isEventCallbackStyle(desc)
             ? Promise.resolve(eventHandler(desc, msg, data, context))

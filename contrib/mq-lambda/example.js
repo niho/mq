@@ -8,5 +8,5 @@ exports.handler = lambda.handle(
     event: (data, context) => {
       console.log(data);
     }
-  })({})
+  })
 );
