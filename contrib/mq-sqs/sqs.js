@@ -6,46 +6,14 @@ exports.handle = (queueUrl, handler) => {
 };
 
 class Message {
-  constructor(queueUrl, msg) {
-    this.queueUrl = queueUrl;
-    this.message = msg;
+  constructor(msg) {
     this.headers = msg.MessageAttributes ? headers(msg.MessageAttributes) : {};
     try {
       this.body = msg.Body ? JSON.parse(msg.Body) : undefined;
     } catch (err) {
       this.body = msg.Body;
+      console.warn("failed to deserialize message body");
     }
-  }
-
-  ack() {
-    if (this.message.ReceiptHandle) {
-      sqs
-        .deleteMessage({
-          QueueUrl: this.queueUrl,
-          ReceiptHandle: this.message.ReceiptHandle
-        })
-        .send();
-    }
-  }
-
-  nack() {
-    if (this.message.ReceiptHandle) {
-      sqs
-        .changeMessageVisibility({
-          QueueUrl: this.queueUrl,
-          ReceiptHandle: this.message.ReceiptHandle,
-          VisibilityTimeout: 0
-        })
-        .send();
-    }
-  }
-
-  reject() {
-    // nop
-  }
-
-  reply(_data, _options) {
-    // nop
   }
 }
 
@@ -59,7 +27,7 @@ const poll = async (queueUrl, handler) => {
     }
     poll(queueUrl, handler);
   } catch (err) {
-    console.log(err.stack ? err.stack : err.message);
+    console.error(err.stack ? err.stack : err.message);
     setTimeout(() => poll(queueUrl, handler), 1000);
   }
 };
@@ -67,8 +35,27 @@ const poll = async (queueUrl, handler) => {
 const processMessage = (queueUrl, handler) => async (msg) => {
   try {
     await handler(new Message(queueUrl, msg));
+    await acknowledgeMessage(queueUrl, msg);
   } catch (err) {
-    console.log(err.stack ? err.stack : err.message, msg);
+    if (err instanceof Error) {
+      console.error(err.stack ? err.stack : err.message, msg);
+    } else {
+      console.warn(err, msg);
+      await acknowledgeMessage(queueUrl, msg);
+    }
+  }
+};
+
+const acknowledgeMessage = async (queueUrl, msg) => {
+  if (msg.ReceiptHandle) {
+    return sqs
+      .deleteMessage({
+        QueueUrl: queueUrl,
+        ReceiptHandle: msg.ReceiptHandle
+      })
+      .promise();
+  } else {
+    return Promise.resolve();
   }
 };
 

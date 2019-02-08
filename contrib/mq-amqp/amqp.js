@@ -10,9 +10,7 @@ exports.connect = async () => {
 };
 
 class Message {
-  constructor(channel, msg) {
-    this.channel = channel;
-    this.message = msg;
+  constructor(msg) {
     this.headers = msg.properties.headers;
     try {
       this.body = deserialize(
@@ -22,36 +20,8 @@ class Message {
       );
     } catch (err) {
       this.body = msg.content;
+      console.warn("failed to deserialize message body");
     }
-  }
-
-  ack() {
-    this.channel.ack(this.message);
-  }
-
-  nack() {
-    this.channel.nack(this.message, false, true);
-  }
-
-  reject() {
-    this.channel.reject(this.message);
-  }
-
-  reply(data, options) {
-    if (this.message.properties.replyTo) {
-      const contentType = getContentType(data, options);
-      const payload = serialize(data, contentType);
-      this.channel.sendToQueue(this.message.properties.replyTo, payload, {
-        contentType,
-        contentEncoding: "utf8",
-        correlationId:
-          this.message.properties.correlationId ||
-          this.message.properties.messageId,
-        type: this.message.properties.type + ".reply",
-        timestamp: Date.now()
-      });
-    }
-    this.ack();
   }
 }
 
@@ -65,10 +35,43 @@ const consumeQueue = connection => async (queueName, handler) => {
 const processMessage = (channel, handler) => async (msg) => {
   if (msg) {
     try {
-      await handler(new Message(channel, msg));
+      const result = await handler(new Message(channel, msg));
+      sendReply(channel, msg, result);
     } catch (err) {
-      channel.nack(msg, false, true);
+      errorHandler(channel, msg, err);
     }
+  }
+};
+
+const sendReply = (channel, msg, data, options) => {
+  if (msg.properties.replyTo && data) {
+    const contentType = getContentType(data, options);
+    const payload = serialize(data, contentType);
+    channel.sendToQueue(msg.properties.replyTo, payload, {
+      contentType,
+      contentEncoding: "utf8",
+      correlationId:
+        msg.properties.correlationId ||
+        msg.properties.messageId,
+      type: msg.properties.type + ".reply",
+      timestamp: Date.now()
+    });
+  }
+  channel.ack(msg);
+}
+
+const errorHandler = (channel, msg, err) => {
+  if (err instanceof Error) {
+    channel.nack(msg);
+    console.error(err.stack ? err.stack : err.message, msg);
+  } else if (typeof err === "object" && err.error) {
+    sendReply(channel, msg, err);
+    console.warn(err, msg);
+  } else if (typeof err === "string") {
+    sendReply(channel, msg, { error: err });
+    console.warn(err, msg);
+  } else {
+    channel.reject(msg);
   }
 };
 

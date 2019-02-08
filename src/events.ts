@@ -1,7 +1,5 @@
 import * as t from "io-ts";
 import { decode } from "./decoder";
-import { errorHandler } from "./errors";
-import { Logger, logger } from "./logger";
 import { Message } from "./message";
 
 const defaultEventField = "event";
@@ -16,7 +14,6 @@ interface ISingleCallbackStyle<T, C, O> {
   type: t.Type<T, O>;
   init: (options: any) => PromiseLike<C> | C;
   event: Callback<T, C>;
-  logger?: Logger;
 }
 
 interface IEventCallbackStyle<T, C, O> {
@@ -26,25 +23,20 @@ interface IEventCallbackStyle<T, C, O> {
   events: {
     [key: string]: Callback<T, C>;
   };
-  logger?: Logger;
 }
 
 export const events = <T, C = any, O = T>(
   desc: Events<T, C, O>,
   options: any = {}
 ) => {
-  const _logger = desc.logger ? desc.logger : logger;
-  return (msg: Message) => {
-    return Promise.resolve(desc.init(options))
-      .then(context =>
-        decode(desc.type, msg.body).then(data =>
-          isEventCallbackStyle(desc)
-            ? Promise.resolve(eventHandler(desc, msg, data, context))
-            : Promise.resolve(desc.event(data, context))
-        )
+  return async (msg: Message) => {
+    return Promise.resolve(desc.init(options)).then(context =>
+      decode(desc.type, msg.body).then(data =>
+        isEventCallbackStyle(desc)
+          ? Promise.resolve(eventHandler(desc, msg, data, context))
+          : Promise.resolve(desc.event(data, context))
       )
-      .then(() => msg.ack())
-      .then(a => a, errorHandler(msg, _logger));
+    );
   };
 };
 

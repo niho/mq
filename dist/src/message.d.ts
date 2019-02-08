@@ -1,21 +1,10 @@
-export declare type Handler = (msg: IMessage) => Promise<void>;
+export declare type Handler = (msg: IMessage) => Promise<unknown>;
 export declare type Headers = IHeaders;
 export declare type Message = IMessage;
-export declare type ReplyOptions = IReplyOptions;
 export interface IHeaders {
     [key: string]: unknown;
 }
 export interface IMessage {
     headers: IHeaders;
     body: any;
-    ack: () => void;
-    nack: () => void;
-    reject: () => void;
-    reply: (data: unknown, options?: IReplyOptions) => void;
-}
-export interface IReplyOptions {
-    more?: boolean;
-    replyType?: string;
-    contentType?: string;
-    headers?: IHeaders;
 }

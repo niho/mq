@@ -1,21 +1,23 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const decoder_1 = require("./decoder");
-const errors_1 = require("./errors");
-const logger_1 = require("./logger");
-const response_1 = require("./response");
 exports.resource = (desc, options = {}) => {
-    const _logger = desc.logger ? desc.logger : logger_1.logger;
-    return (msg) => {
+    return (msg) => __awaiter(this, void 0, void 0, function* () {
         return Promise.resolve(desc.init(options))
             .then(context => desc.authorized(msg.headers, context))
             .then(context => desc.exists(msg.headers, context))
             .then(context => desc.forbidden(msg.headers, context))
             .then(context => decoder_1.decode(desc.type[0], msg.body).then(data => Promise.resolve(desc.update(data, context))
             .then(_context => desc.response(_context))
-            .then(result => decoder_1.decode(desc.type[1], result))
-            .then(response_1.response(msg))))
-            .then(a => a, errors_1.errorHandler(msg, _logger));
-    };
+            .then(result => decoder_1.decode(desc.type[1], result))));
+    });
 };
 //# sourceMappingURL=resource.js.map

@@ -9,7 +9,7 @@ chai.use(chaiAsPromised);
 
 describe("resource", () => {
   const desc = {
-    type: [t.any, t.number] as [t.Type<any>, t.Type<number>],
+    type: [t.any, t.any] as [t.Type<any>, t.Type<any>],
     init: sinon.stub().resolvesArg(0),
     authorized: sinon.stub().resolvesArg(1),
     exists: sinon.stub().resolvesArg(1),
@@ -18,15 +18,11 @@ describe("resource", () => {
     response: sinon.stub().resolvesArg(0)
   };
 
-  const req = {
+  const msg = {
     headers: {
       test: "header"
     },
-    body: { test: "test" },
-    ack: sinon.spy(),
-    nack: sinon.spy(),
-    reply: sinon.spy(),
-    reject: sinon.spy()
+    body: { test: "test" }
   };
 
   afterEach(() => {
@@ -36,23 +32,19 @@ describe("resource", () => {
     desc.forbidden.resetHistory();
     desc.update.resetHistory();
     desc.response.resetHistory();
-    req.ack.resetHistory();
-    req.nack.resetHistory();
-    req.reply.resetHistory();
-    req.reject.resetHistory();
   });
 
   describe("init", () => {
-    beforeEach(() => resource(desc, { test: "test" })(req));
+    beforeEach(() => resource(desc, "test")(msg));
 
     it("should be called", () => desc.init.called.should.equal(true));
 
     it("should be called with options", () =>
-      desc.init.lastCall.args[0].should.deep.equal({ test: "test" }));
+      desc.init.lastCall.args[0].should.deep.equal("test"));
   });
 
   describe("authorized", () => {
-    beforeEach(() => resource(desc)(req));
+    beforeEach(() => resource(desc)(msg));
 
     it("should be called", () => desc.authorized.called.should.equal(true));
 
@@ -64,7 +56,7 @@ describe("resource", () => {
   });
 
   describe("exists", () => {
-    beforeEach(() => resource(desc)(req));
+    beforeEach(() => resource(desc)(msg));
 
     it("should be called", () => desc.exists.called.should.equal(true));
 
@@ -76,7 +68,7 @@ describe("resource", () => {
   });
 
   describe("forbidden", () => {
-    beforeEach(() => resource(desc)(req));
+    beforeEach(() => resource(desc)(msg));
 
     it("should be called", () => desc.forbidden.called.should.equal(true));
 
@@ -88,7 +80,7 @@ describe("resource", () => {
   });
 
   describe("update", () => {
-    beforeEach(() => resource(desc)(req));
+    beforeEach(() => resource(desc)(msg));
 
     it("should be called", () => desc.update.called.should.equal(true));
 
@@ -97,14 +89,10 @@ describe("resource", () => {
 
     it("should be called with context", () =>
       desc.update.lastCall.args[1].should.deep.equal({}));
-
-    describe("with invalid request data", () => {
-      it("should nack", () => req.nack.called.should.equal(true));
-    });
   });
 
   describe("response", () => {
-    beforeEach(() => resource(desc)(req));
+    beforeEach(() => resource(desc)(msg));
 
     it("should be called", () => desc.response.called.should.equal(true));
 
@@ -112,58 +100,66 @@ describe("resource", () => {
       desc.response.lastCall.args[0].should.deep.equal({}));
 
     describe("with valid response data", () => {
-      beforeEach(() => resource(desc, 42)(req));
-      it("should reply", () => req.reply.called.should.equal(true));
-    });
-
-    describe("with invalid response data", () => {
-      beforeEach(() => resource(desc, { test: "test" })(req));
-
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should resolve with response", () =>
+        resource(desc, 42)(msg).should.eventually.equal(42));
     });
   });
 
   describe("error handling", () => {
     describe("init rejects with error", () => {
-      beforeEach(() =>
-        resource({ ...desc, init: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        resource({ ...desc, init: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("authorized rejects with error", () => {
-      beforeEach(() =>
-        resource({ ...desc, authorized: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        resource({ ...desc, authorized: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("exists rejects with error", () => {
-      beforeEach(() =>
-        resource({ ...desc, exists: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        resource({ ...desc, exists: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("forbidden rejects with error", () => {
-      beforeEach(() =>
-        resource({ ...desc, forbidden: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        resource({ ...desc, forbidden: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("update rejects with error", () => {
-      beforeEach(() =>
-        resource({ ...desc, update: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        resource({ ...desc, update: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("response rejects with error", () => {
-      beforeEach(() =>
-        resource({ ...desc, response: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        resource({ ...desc, response: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
+    });
+
+    describe("with invalid request data", () => {
+      it("should be rejected", () =>
+        resource({ ...desc, type: [t.number, t.any] })(
+          msg
+        ).should.be.rejectedWith(Error));
+    });
+
+    describe("with invalid response data", () => {
+      it("should be rejected", () =>
+        resource({ ...desc, type: [t.any, t.number] }, "test")(
+          msg
+        ).should.be.rejectedWith(Error));
     });
   });
 });

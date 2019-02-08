@@ -6,69 +6,87 @@ import { events } from "../src/events";
 chai.should();
 
 describe("events", () => {
-  const req = {
+  const msg = {
     headers: {},
-    body: {},
-    ack: sinon.spy(),
-    nack: sinon.spy(),
-    reject: sinon.spy(),
-    reply: sinon.spy()
+    body: {}
   };
 
-  afterEach(() => {
-    req.ack.resetHistory();
-    req.nack.resetHistory();
-    req.reject.resetHistory();
-    req.reply.resetHistory();
-  });
-
   describe("single callback style", () => {
-    const desc = {
-      type: t.any,
-      init: () => ({}),
-      event: sinon.fake()
-    };
-
     describe("incoming event", () => {
-      beforeEach(() => events(desc)(req));
-      it("should ack", () => req.ack.called.should.be.true);
+      const handler = events({
+        type: t.any,
+        init: () => ({}),
+        event: sinon.fake()
+      });
+
+      it("should resolve", () =>
+        handler(msg).should.eventually.equal(undefined));
     });
 
     describe("error handling", () => {
       describe("init rejects with error", () => {
-        beforeEach(() =>
-          events({ ...desc, init: sinon.stub().rejects() })(req)
-        );
-        it("should nack", () => req.nack.called.should.equal(true));
+        const handler = events({
+          type: t.any,
+          init: sinon.stub().rejects(),
+          event: sinon.fake()
+        });
+
+        it("should be rejected with error", () =>
+          handler(msg).should.be.rejectedWith(Error));
       });
 
       describe("event rejects with error", () => {
-        beforeEach(() =>
-          events({ ...desc, event: sinon.stub().rejects() })(req)
-        );
-        it("should nack", () => req.nack.called.should.equal(true));
+        const handler = events({
+          type: t.any,
+          init: () => ({}),
+          event: sinon.stub().rejects()
+        });
+
+        it("should be rejected with error", () =>
+          handler(msg).should.be.rejectedWith(Error));
+      });
+
+      describe("type decoder fails to decode message body", () => {
+        const handler = events({
+          type: t.string,
+          init: () => ({}),
+          event: sinon.fake()
+        });
+
+        it("should be rejected with error", () =>
+          handler(msg).should.be.rejectedWith(Error));
       });
     });
   });
 
   describe("event callback style", () => {
-    const desc = {
+    const testFunc = sinon.stub().resolves({});
+    const handler = events({
       type: t.any,
       init: () => ({}),
       events: {
-        test: sinon.stub().resolves({})
+        test: testFunc
       }
-    };
+    });
 
-    describe("incoming event", () => {
-      beforeEach(() => events(desc)(req));
-      it("should reject", () => req.reject.called.should.be.true);
+    describe("unknown event", () => {
+      it("should be rejected", () =>
+        handler({
+          headers: {},
+          body: { event: "wrong" }
+        }).should.be.rejectedWith());
+
+      it("should not call 'test'", () => testFunc.called.should.be.false);
     });
 
     describe("'test' event", () => {
-      beforeEach(() => events(desc)({ ...req, body: { event: "test" } }));
-      it("should ack", () => req.ack.called.should.be.true);
-      it("should call 'test'", () => desc.events.test.called.should.be.true);
+      it("should resolve", () =>
+        handler({
+          headers: {},
+          body: { event: "test" }
+        }).should.eventually.deep.equal({}));
+
+      it("should call 'test'", () => testFunc.called.should.be.true);
     });
   });
 });

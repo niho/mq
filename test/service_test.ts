@@ -16,15 +16,11 @@ describe("service", () => {
     response: sinon.stub().resolvesArg(0)
   };
 
-  const req = {
+  const msg = {
     headers: {
       test: "header"
     },
-    body: {},
-    ack: sinon.spy(),
-    nack: sinon.spy(),
-    reply: sinon.spy(),
-    reject: sinon.spy()
+    body: {}
   };
 
   afterEach(() => {
@@ -32,14 +28,10 @@ describe("service", () => {
     desc.authorized.resetHistory();
     desc.forbidden.resetHistory();
     desc.response.resetHistory();
-    req.ack.resetHistory();
-    req.nack.resetHistory();
-    req.reply.resetHistory();
-    req.reject.resetHistory();
   });
 
   describe("init", () => {
-    beforeEach(() => service(desc, { test: "test" })(req));
+    beforeEach(() => service(desc, { test: "test" })(msg));
 
     it("should be called", () => desc.init.called.should.equal(true));
 
@@ -48,7 +40,7 @@ describe("service", () => {
   });
 
   describe("authorized", () => {
-    beforeEach(() => service(desc)(req));
+    beforeEach(() => service(desc)(msg));
 
     it("should be called", () => desc.authorized.called.should.equal(true));
 
@@ -60,7 +52,7 @@ describe("service", () => {
   });
 
   describe("forbidden", () => {
-    beforeEach(() => service(desc)(req));
+    beforeEach(() => service(desc)(msg));
 
     it("should be called", () => desc.forbidden.called.should.equal(true));
 
@@ -72,52 +64,51 @@ describe("service", () => {
   });
 
   describe("response", () => {
-    beforeEach(() => service(desc)(req));
+    beforeEach(() => service(desc)(msg));
 
     it("should be called", () => desc.response.called.should.equal(true));
 
     it("should be called with context", () =>
       desc.response.lastCall.args[0].should.deep.equal({}));
 
-    describe("with valid response data", () => {
-      beforeEach(() => service(desc, { test: "test" })(req));
-      it("should reply", () => req.reply.called.should.equal(true));
-    });
-
-    describe("with invalid response data", () => {
-      beforeEach(() =>
-        service({ ...desc, type: t.string }, { test: "test" })(req)
-      );
-
-      it("should nack", () => req.nack.called.should.equal(true));
-    });
+    it("should resolve with response", () =>
+      service(desc, "test")(msg).should.eventually.equal("test"));
   });
 
   describe("error handling", () => {
     describe("init rejects with error", () => {
-      beforeEach(() => service({ ...desc, init: sinon.stub().rejects() })(req));
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        service({ ...desc, init: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("authorized rejects with error", () => {
-      beforeEach(() =>
-        service({ ...desc, authorized: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        service({ ...desc, authorized: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("forbidden rejects with error", () => {
-      beforeEach(() =>
-        service({ ...desc, forbidden: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        service({ ...desc, forbidden: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
     });
 
     describe("response rejects with error", () => {
-      beforeEach(() =>
-        service({ ...desc, response: sinon.stub().rejects() })(req)
-      );
-      it("should nack", () => req.nack.called.should.equal(true));
+      it("should be rejected", () =>
+        service({ ...desc, response: sinon.stub().rejects() })(
+          msg
+        ).should.be.rejectedWith(Error));
+    });
+
+    describe("with invalid response data", () => {
+      it("should be rejected", () =>
+        service({ ...desc, type: t.number }, "test")(
+          msg
+        ).should.be.rejectedWith(Error));
     });
   });
 });
