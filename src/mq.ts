@@ -1,4 +1,3 @@
-import * as t from "io-ts";
 import * as _events from "./events";
 import * as _logger from "./logger";
 import * as _message from "./message";
@@ -15,5 +14,3 @@ export const events = _events.events;
 export const resource = _resource.resource;
 export const service = _service.service;
 export const logger = _logger.logger;
-
-export const any = t.any; // tslint:disable-line

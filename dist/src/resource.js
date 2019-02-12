@@ -8,6 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const t = require("io-ts");
 const decoder_1 = require("./decoder");
 exports.resource = (desc, options = {}) => {
     return (msg) => __awaiter(this, void 0, void 0, function* () {
@@ -15,9 +16,9 @@ exports.resource = (desc, options = {}) => {
             .then(context => desc.authorized(msg.headers, context))
             .then(context => desc.exists(msg.headers, context))
             .then(context => desc.forbidden(msg.headers, context))
-            .then(context => decoder_1.decode(desc.type[0], msg.body).then(data => Promise.resolve(desc.update(data, context))
+            .then(context => decoder_1.decode(desc.type ? desc.type[0] : t.any, msg.body).then(data => Promise.resolve(desc.update(data, context))
             .then(_context => desc.response(_context))
-            .then(result => decoder_1.decode(desc.type[1], result))));
+            .then(result => decoder_1.decode(desc.type ? desc.type[1] : t.any, result))));
     });
 };
 //# sourceMappingURL=resource.js.map

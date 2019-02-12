@@ -3,7 +3,7 @@ import { decode } from "./decoder";
 import { Headers, Message } from "./message";
 
 export interface IResource<T, U, C, TO, UO> {
-  type: [t.Type<T, TO>, t.Type<U, UO>];
+  type?: [t.Type<T, TO>, t.Type<U, UO>];
   init: (options: any) => PromiseLike<C> | C;
   authorized: (headers: Headers, context: C) => PromiseLike<C> | C;
   exists: (headers: Headers, context: C) => PromiseLike<C> | C;
@@ -22,10 +22,10 @@ export const resource = <T, U = t.mixed, C = any, TO = T, UO = U>(
       .then(context => desc.exists(msg.headers, context))
       .then(context => desc.forbidden(msg.headers, context))
       .then(context =>
-        decode(desc.type[0], msg.body).then(data =>
+        decode(desc.type ? desc.type[0] : t.any, msg.body).then(data =>
           Promise.resolve(desc.update(data, context))
             .then(_context => desc.response(_context))
-            .then(result => decode(desc.type[1], result))
+            .then(result => decode(desc.type ? desc.type[1] : t.any, result))
         )
       );
   };

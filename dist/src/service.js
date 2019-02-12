@@ -8,6 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const t = require("io-ts");
 const decoder_1 = require("./decoder");
 exports.service = (desc, options = {}) => {
     return (msg) => __awaiter(this, void 0, void 0, function* () {
@@ -15,7 +16,7 @@ exports.service = (desc, options = {}) => {
             .then(context => desc.authorized(msg.headers, context))
             .then(context => desc.forbidden(msg.headers, context))
             .then(context => desc.response(context))
-            .then(result => decoder_1.decode(desc.type, result));
+            .then(result => decoder_1.decode(desc.type || t.any, result));
     });
 };
 //# sourceMappingURL=service.js.map

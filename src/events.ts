@@ -11,13 +11,13 @@ export type Events<T, C, O> =
   | IEventCallbackStyle<T, C, O>;
 
 interface ISingleCallbackStyle<T, C, O> {
-  type: t.Type<T, O>;
+  type?: t.Type<T, O>;
   init: (options: any) => PromiseLike<C> | C;
   event: Callback<T, C>;
 }
 
 interface IEventCallbackStyle<T, C, O> {
-  type: t.Type<T, O>;
+  type?: t.Type<T, O>;
   init: (options: any) => PromiseLike<C> | C;
   event?: string;
   events: {
@@ -31,7 +31,7 @@ export const events = <T, C = any, O = T>(
 ) => {
   return async (msg: Message) => {
     return Promise.resolve(desc.init(options)).then(context =>
-      decode(desc.type, msg.body).then(data =>
+      decode(desc.type || t.any, msg.body).then(data =>
         isEventCallbackStyle(desc)
           ? Promise.resolve(eventHandler(desc, msg, data, context))
           : Promise.resolve(desc.event(data, context))

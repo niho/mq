@@ -3,7 +3,7 @@ import { decode } from "./decoder";
 import { Headers, Message } from "./message";
 
 export interface IService<T, C, O> {
-  type: t.Type<T, O>;
+  type?: t.Type<T, O>;
   init: (options: any) => PromiseLike<C> | C;
   authorized: (headers: Headers, context: C) => PromiseLike<C> | C;
   forbidden: (headers: Headers, context: C) => PromiseLike<C> | C;
@@ -19,6 +19,6 @@ export const service = <T = t.mixed, C = any, O = T>(
       .then(context => desc.authorized(msg.headers, context))
       .then(context => desc.forbidden(msg.headers, context))
       .then(context => desc.response(context))
-      .then(result => decode(desc.type, result));
+      .then(result => decode(desc.type || t.any, result));
   };
 };

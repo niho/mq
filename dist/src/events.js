@@ -8,11 +8,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const t = require("io-ts");
 const decoder_1 = require("./decoder");
 const defaultEventField = "event";
 exports.events = (desc, options = {}) => {
     return (msg) => __awaiter(this, void 0, void 0, function* () {
-        return Promise.resolve(desc.init(options)).then(context => decoder_1.decode(desc.type, msg.body).then(data => isEventCallbackStyle(desc)
+        return Promise.resolve(desc.init(options)).then(context => decoder_1.decode(desc.type || t.any, msg.body).then(data => isEventCallbackStyle(desc)
             ? Promise.resolve(eventHandler(desc, msg, data, context))
             : Promise.resolve(desc.event(data, context))));
     });

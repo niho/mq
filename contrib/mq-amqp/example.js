@@ -6,7 +6,6 @@ amqp.connect()
     worker.handle(
       "mq.test",
       mq.events({
-        type: mq.any,
         init: options => ({}),
         event: (data, context) => {
           console.log(data);
