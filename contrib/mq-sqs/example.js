@@ -1,8 +1,13 @@
 const mq = require("../../dist/src/mq.js");
 const sqs = require("./sqs.js");
 
+if (process.env.SQS_QUEUE === undefined) {
+  console.error("Use the SQS_QUEUE environment variable to specify a queue.")
+  process.exit(1)
+}
+
 sqs.handle(
-  "https://sqs.eu-west-1.amazonaws.com/100707962996/test",
+  process.env.SQS_QUEUE,
   mq.events({
     init: options => ({}),
     event: (data, context) => {
