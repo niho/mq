@@ -1,9 +1,9 @@
 {
   "name": "@ithaca/mq-lambda",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AWS Lambda backend for MQ.",
-  "main": "./dist/src/lambda.js",
-  "types": "./dist/src/lambda.d.ts",
+  "main": "./lambda.js",
+  "types": "./lambda.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/niho/mq.git"

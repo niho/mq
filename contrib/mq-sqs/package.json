@@ -1,9 +1,9 @@
 {
   "name": "@ithaca/mq-sqs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AWS SQS backend for MQ.",
-  "main": "./dist/src/sqs.js",
-  "types": "./dist/src/sqs.d.ts",
+  "main": "./sqs.js",
+  "types": "./sqs.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/niho/mq.git"
