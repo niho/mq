@@ -1,4 +1,4 @@
-import * as mq from "mq";
+import * as mq from "@ithaca/mq";
 
 export declare const handle: (handler: mq.Handler) => (
   event: any,
