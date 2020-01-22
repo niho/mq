@@ -1,5 +1,5 @@
 {
-  "name": "mq-lambda",
+  "name": "@ithaca/mq-lambda",
   "version": "1.0.0",
   "description": "AWS Lambda backend for MQ.",
   "main": "./dist/src/lambda.js",

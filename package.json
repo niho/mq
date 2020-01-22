@@ -1,5 +1,5 @@
 {
-  "name": "mq",
+  "name": "@ithaca/mq",
   "version": "2.0.0",
   "description": "A declarative abstraction layer for writing event handlers.",
   "main": "./dist/src/mq.js",
@@ -50,5 +50,8 @@
     "ts-node": "^4.0.2",
     "tslint": "^5.9.1",
     "typescript": "^3.0.1"
+  },
+  "directories": {
+    "test": "test"
   }
 }

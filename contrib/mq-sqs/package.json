@@ -1,5 +1,5 @@
 {
-  "name": "mq-sqs",
+  "name": "@ithaca/mq-sqs",
   "version": "1.0.0",
   "description": "AWS SQS backend for MQ.",
   "main": "./dist/src/sqs.js",

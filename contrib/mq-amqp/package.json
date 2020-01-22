@@ -1,5 +1,5 @@
 {
-  "name": "mq-amqp",
+  "name": "@ithaca/mq-amqp",
   "version": "1.0.0",
   "description": "AMQP backend for MQ.",
   "main": "./amqp.js",
