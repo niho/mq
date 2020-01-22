@@ -7,8 +7,16 @@ A declarative abstraction layer for writing event handlers.
 - Three basic event handler types (events, service and resource) for different use cases.
 - A declarative callback/promise based API that hides potentially complex details like error handling and serializations.
 - Statically typed validation of input/output messages using the `io-ts` library.
-- Not tied to any specific back-end and can be used with any queue based protocol (currently only supports AMQP).
+- Not tied to any specific back-end and can be used with any queue based protocol (currently only supports AMQP, SQS and Lambda).
 - Ideal for building event sourced micro-services.
+
+## Backends
+
+To receive messages from the outside world you need a backend that can connect with some kind of message broker. The backend system is modular and backends are packaged as separate npm packages that you need to install and require in your project. The following backends are currently available:
+
+- **mq-amqp** - A backend for interfacing with an AMQP broker like RabbitMQ or ActiveMQ. Uses the very stable and battle tested _amqplib_.
+- **mq-lambda** - A backend for interfacing with AWS Lambda.
+- **mq-sqs** - A backend for interfacing with AWS Simple Queue Service.
 
 ## Handler types
 
@@ -25,7 +33,7 @@ mq.events({
   init: options => ({}),
   event: (data, context) => {
     switch (data.event) {
-      case "claim": return Promise.resolve();
+      case "hello": return Promise.resolve();
       default: return Promise.reject();
     }
 });
